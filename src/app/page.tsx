@@ -6,7 +6,7 @@ import { Testimonials } from '~/components/sections/testimonials';
 
 export default function Home() {
   return (
-    <div className="h-screen">
+    <div className="">
       <Header />
       <Hero />
       <Features />

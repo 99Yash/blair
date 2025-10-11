@@ -3,7 +3,7 @@
 import { Menu, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import * as React from 'react';
 import { siteConfig } from '~/lib/site';
 import { Button } from '../ui/button';
 
@@ -26,11 +26,11 @@ const itemVariants = {
 };
 
 export function Header() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+  const mobileMenuRef = React.useRef<HTMLDivElement>(null);
 
   // Handle clicking outside to close mobile menu
-  useEffect(() => {
+  React.useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (
         mobileMenuRef.current &&
@@ -49,7 +49,7 @@ export function Header() {
   }, [mobileMenuOpen]);
 
   return (
-    <header className="fixed top-0 w-full bg-background/80 backdrop-blur-md z-50 border-b border-border">
+    <header className="fixed top-2.5 w-[calc(100%-8px)] bg-background/80 backdrop-blur-md z-50 border-b border-border">
       <nav className="container mx-auto px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className="h-6 w-6 text-primary" />

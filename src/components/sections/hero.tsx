@@ -11,7 +11,7 @@ export function Hero() {
           Powered by Advanced AI
         </Badge>
 
-        <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">
+        <h1 className="text-5xl md:text-7xl font-bold font-sans tracking-tight mb-6 bg-gradient-to-br from-foreground to-muted-foreground bg-clip-text text-transparent">
           Create Amazing Content
           <br />
           in Seconds

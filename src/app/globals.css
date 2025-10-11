@@ -52,8 +52,12 @@
   --status-cancelled: oklch(0.577 0.245 27.325);
   --status-duplicate: oklch(0.831 0.156 102.212);
   --scrollbar-track-color: var(--background);
-  --scrollbar-thumb-color: var(--border);
-  --scrollbar-thumb-hover-color: var(--ring);
+  --scrollbar-thumb-color: color-mix(in srgb, var(--border) 40%, transparent);
+  --scrollbar-thumb-hover-color: color-mix(
+    in srgb,
+    var(--ring) 60%,
+    transparent
+  );
 }
 
 @theme inline {
@@ -196,14 +200,18 @@ body {
   --status-cancelled: oklch(0.637 0.237 25.331);
   --status-duplicate: oklch(0.869 0.14 95.677);
   --scrollbar-track-color: var(--background);
-  --scrollbar-thumb-color: var(--border);
-  --scrollbar-thumb-hover-color: var(--ring);
+  --scrollbar-thumb-color: color-mix(in srgb, var(--border) 40%, transparent);
+  --scrollbar-thumb-hover-color: color-mix(
+    in srgb,
+    var(--ring) 60%,
+    transparent
+  );
 }
 
 /* Scrollbar styles for webkit browsers (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
-  width: 2px; /* For vertical scrollbars */
-  height: 2px; /* For horizontal scrollbars */
+  width: 1px; /* Thinner vertical scrollbars */
+  height: 1px; /* Thinner horizontal scrollbars */
 }
 
 ::-webkit-scrollbar-track {
@@ -214,7 +222,8 @@ body {
 ::-webkit-scrollbar-thumb {
   background-color: var(--scrollbar-thumb-color);
   border-radius: var(--radius); /* Rounded corners for the thumb */
-  border: 1px solid var(--scrollbar-track-color); /* To match the track color */
+  border: none; /* Remove border to keep it thin and subtle */
+  min-height: 20px; /* Ensure thumb is grippable */
 }
 
 ::-webkit-scrollbar-thumb:hover {

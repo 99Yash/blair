@@ -1,7 +1,17 @@
+import { Features } from '~/components/sections/features';
+import { Footer } from '~/components/sections/footer';
+import { Header } from '~/components/sections/header';
+import { Hero } from '~/components/sections/hero';
+import { Testimonials } from '~/components/sections/testimonials';
+
 export default function Home() {
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start"></main>
+    <div className="h-screen">
+      <Header />
+      <Hero />
+      <Features />
+      <Testimonials />
+      <Footer />
     </div>
   );
 }

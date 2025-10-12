@@ -1,9 +1,5 @@
 import { headers } from 'next/headers';
-import { Features } from '~/components/sections/landing/features';
-import { Footer } from '~/components/sections/landing/footer';
-import { Header } from '~/components/sections/landing/header';
-import { Hero } from '~/components/sections/landing/hero';
-import { Testimonials } from '~/components/sections/landing/testimonials';
+import { Landing } from '~/components/sections/landing';
 import { auth } from '~/lib/auth/server';
 
 export default async function Home() {
@@ -14,17 +10,11 @@ export default async function Home() {
   return (
     <div>
       {session ? (
-        <div>
+        <div className="flex flex-col items-center justify-center h-full bg-green-100">
           <h1>Dashboard</h1>
         </div>
       ) : (
-        <>
-          <Header />
-          <Hero />
-          <Features />
-          <Testimonials />
-          <Footer />
-        </>
+        <Landing />
       )}
     </div>
   );

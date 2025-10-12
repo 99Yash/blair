@@ -7,8 +7,8 @@ import * as React from 'react';
 import { authClient } from '~/lib/auth/client';
 import { siteConfig } from '~/lib/site';
 import { cn } from '~/lib/utils';
-import { Button, buttonVariants } from '../ui/button';
-import { UserDropdown } from './user-dropdown';
+import { Button, buttonVariants } from '../../ui/button';
+import { UserDropdown } from '../../utils/user-dropdown';
 
 const containerVariants = {
   hidden: { opacity: 0, height: 0 },

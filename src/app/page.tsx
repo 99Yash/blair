@@ -1,17 +1,31 @@
-import { Features } from '~/components/sections/features';
-import { Footer } from '~/components/sections/footer';
-import { Header } from '~/components/sections/header';
-import { Hero } from '~/components/sections/hero';
-import { Testimonials } from '~/components/sections/testimonials';
+import { headers } from 'next/headers';
+import { Features } from '~/components/sections/landing/features';
+import { Footer } from '~/components/sections/landing/footer';
+import { Header } from '~/components/sections/landing/header';
+import { Hero } from '~/components/sections/landing/hero';
+import { Testimonials } from '~/components/sections/landing/testimonials';
+import { auth } from '~/lib/auth/server';
 
-export default function Home() {
+export default async function Home() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  });
+
   return (
-    <div className="">
-      <Header />
-      <Hero />
-      <Features />
-      <Testimonials />
-      <Footer />
+    <div>
+      {session ? (
+        <div>
+          <h1>Dashboard</h1>
+        </div>
+      ) : (
+        <>
+          <Header />
+          <Hero />
+          <Features />
+          <Testimonials />
+          <Footer />
+        </>
+      )}
     </div>
   );
 }

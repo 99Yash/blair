@@ -1,7 +1,7 @@
 import { Star } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '~/components/ui/avatar';
+import { Card, CardContent } from '~/components/ui/card';
 import { siteConfig } from '~/lib/site';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Card, CardContent } from '../ui/card';
 
 const testimonials = [
   {

@@ -1,6 +1,6 @@
 import { ArrowRight, Badge, Sparkles, Zap } from 'lucide-react';
 import { siteConfig } from '~/lib/site';
-import { Button } from '../ui/button';
+import { Button } from '../../ui/button';
 
 export function Hero() {
   return (

@@ -4,8 +4,11 @@ import { Menu, Sparkles } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
 import Link from 'next/link';
 import * as React from 'react';
+import { authClient } from '~/lib/auth/client';
 import { siteConfig } from '~/lib/site';
-import { Button } from '../ui/button';
+import { cn } from '~/lib/utils';
+import { Button, buttonVariants } from '../ui/button';
+import { UserDropdown } from './user-dropdown';
 
 const containerVariants = {
   hidden: { opacity: 0, height: 0 },
@@ -26,6 +29,7 @@ const itemVariants = {
 };
 
 export function Header() {
+  const { data: session, isPending } = authClient.useSession();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const mobileMenuRef = React.useRef<HTMLDivElement>(null);
 
@@ -47,6 +51,10 @@ export function Header() {
       };
     }
   }, [mobileMenuOpen]);
+
+  if (isPending) {
+    return null;
+  }
 
   return (
     <header className="fixed top-2.5 w-[calc(100%-8px)] bg-background/80 backdrop-blur-md z-50 border-b border-border">
@@ -85,10 +93,26 @@ export function Header() {
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-          <Button variant="ghost" size="sm">
-            Sign In
-          </Button>
-          <Button size="sm">Get Started</Button>
+          {session?.user ? (
+            <UserDropdown />
+          ) : (
+            <>
+              <Link
+                className={cn(buttonVariants({ variant: 'ghost', size: 'sm' }))}
+                href="/signin"
+              >
+                Sign In
+              </Link>
+              <Link
+                className={cn(
+                  buttonVariants({ variant: 'default', size: 'sm' })
+                )}
+                href="/signup"
+              >
+                Get Started
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Mobile Menu Button */}
@@ -204,21 +228,29 @@ export function Header() {
                 }}
                 className="flex flex-col gap-2 pt-2"
               >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Sign In
-                </Button>
-                <Button
-                  size="sm"
-                  className="w-full"
-                  onClick={() => setMobileMenuOpen(false)}
-                >
-                  Get Started
-                </Button>
+                {session?.user ? (
+                  <div className="px-4 py-2">
+                    <UserDropdown />
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Sign In
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Get Started
+                    </Button>
+                  </>
+                )}
               </motion.div>
             </div>
           </motion.div>

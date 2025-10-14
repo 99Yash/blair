@@ -1,5 +1,7 @@
+import { relations } from 'drizzle-orm';
 import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
 import { lifecycle_dates } from './helpers';
+import { training_posts } from './post';
 
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
@@ -9,6 +11,10 @@ export const user = pgTable('user', {
   image: text('image'),
   ...lifecycle_dates,
 });
+
+export const userRelations = relations(user, ({ many }) => ({
+  trainingPosts: many(training_posts),
+}));
 
 export const session = pgTable('session', {
   id: text('id').primaryKey(),

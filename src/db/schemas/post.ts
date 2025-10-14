@@ -1,3 +1,4 @@
+import { relations } from 'drizzle-orm';
 import {
   integer,
   jsonb,
@@ -7,6 +8,7 @@ import {
   varchar,
   vector,
 } from 'drizzle-orm/pg-core';
+import { user } from './auth';
 import { createId, lifecycle_dates } from './helpers';
 
 export const linkTypeEnum = pgEnum('link_type', [
@@ -73,18 +75,28 @@ export const training_posts = pgTable('training_posts', {
   content_type: linkTypeEnum('content_type').notNull(),
   original_url: text('original_url').notNull().unique(),
   content_summary: text('content_summary').notNull(),
-  call_to_action_type: ctaTypeEnum('call_to_action_type'),
+  call_to_action_type: ctaTypeEnum('call_to_action_type').notNull(),
   sales_pitch_strength: integer('sales_pitch_strength').notNull().default(100),
   tone_profile: jsonb('tone_profile')
     .$type<
       Array<{ tone: (typeof toneEnum.enumValues)[number]; weight: number }> // max weight is 100
     >()
     .notNull(),
-  embedding: vector('embedding', { dimensions: 1536 }),
+  embedding: vector('embedding', { dimensions: 1536 }), // post embedding
   content_summary_embedding: vector('content_summary_embedding', {
-    dimensions: 1536,
+    dimensions: 1536, // content summary embedding
   }),
   link_ownership_type: linkOwnershipTypeEnum('link_ownership_type').notNull(),
-  target_audience: targetAudienceEnum('target_audience'),
+  target_audience: targetAudienceEnum('target_audience').notNull(),
+  user_id: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
   ...lifecycle_dates,
 });
+
+export const postRelations = relations(training_posts, ({ one }) => ({
+  user: one(user, {
+    fields: [training_posts.user_id],
+    references: [user.id],
+  }),
+}));

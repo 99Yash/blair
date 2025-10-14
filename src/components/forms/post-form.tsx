@@ -158,12 +158,13 @@ export function PostForm() {
     }
 
     try {
+      const formData = form.getValues();
       const response = await fetch('/api/posts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ original_url: url }),
+        body: JSON.stringify(formData),
       });
 
       if (!response.ok) {

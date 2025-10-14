@@ -3,6 +3,7 @@ import { embedMany, generateObject } from 'ai';
 import { headers } from 'next/headers';
 
 import { and, eq } from 'drizzle-orm';
+import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { training_posts } from '~/db/schemas';
 import { auth } from '~/lib/auth/server';
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   });
 
   if (!session?.user) {
-    return new Response('Unauthorized', { status: 401 });
+    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
   const body = await request.json();
@@ -31,7 +32,7 @@ export async function POST(request: Request) {
     validatedBody = postFormSchema.parse(body);
   } catch (error) {
     const message = getErrorMessage(error);
-    return new Response(message, { status: 400 });
+    return NextResponse.json({ message }, { status: 400 });
   }
 
   try {
@@ -48,7 +49,10 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (existingPost.length > 0) {
-      return new Response('You have already added this URL', { status: 409 });
+      return NextResponse.json(
+        { message: 'You have already added this URL' },
+        { status: 409 }
+      );
     }
 
     const scrapedContent = await firecrawl.scrape(validatedBody.original_url, {
@@ -104,9 +108,15 @@ export async function POST(request: Request) {
 
     console.log('post', post);
 
-    return new Response('Post created successfully', { status: 201 });
+    return NextResponse.json(
+      { message: 'Post created successfully' },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error scraping and analyzing URL:', error);
-    return new Response('Internal Server Error', { status: 500 });
+    return NextResponse.json(
+      { message: 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }

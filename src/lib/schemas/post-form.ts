@@ -141,6 +141,13 @@ export const scrapedContentAnalysisSchema = z.object({
       'other',
     ])
     .describe('The call to action type of the scraped content'),
+  sales_pitch_strength: z
+    .number()
+    .min(0)
+    .max(100)
+    .describe(
+      'The sales pitch strength of the scraped content, as an integer.'
+    ),
 });
 
 export type ScrapedContentAnalysis = z.infer<

@@ -1,6 +1,6 @@
 {
-  "id": "b8b5570a-b28c-480a-892b-a69e5fdfa215",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "e51d78aa-1423-4aa4-9b74-77264d7c6dc7",
+  "prevId": "b8b5570a-b28c-480a-892b-a69e5fdfa215",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -360,7 +360,7 @@
           "type": "cta_type",
           "typeSchema": "public",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "sales_pitch_strength": {
           "name": "sales_pitch_strength",
@@ -399,7 +399,7 @@
           "type": "target_audience",
           "typeSchema": "public",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "created_at": {
           "name": "created_at",

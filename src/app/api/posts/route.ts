@@ -22,7 +22,17 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
-  const validatedBody = postFormSchema.parse(body);
+  let validatedBody;
+  try {
+    validatedBody = postFormSchema.parse(body);
+  } catch (error) {
+    // ZodError or generic error
+    const message =
+      error?.issues
+        ? JSON.stringify(error.issues)
+        : error?.message || 'Invalid request body';
+    return new Response(`Validation Error: ${message}`, { status: 400 });
+  }
 
   try {
     const scrapedContent = await firecrawl.scrape(validatedBody.original_url, {

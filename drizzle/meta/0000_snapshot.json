@@ -1,5 +1,5 @@
 {
-  "id": "3dc8a46c-4b2d-434e-b587-4dd5541af634",
+  "id": "b8b5570a-b28c-480a-892b-a69e5fdfa215",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -312,9 +312,202 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
+    },
+    "public.training_posts": {
+      "name": "training_posts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "varchar",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "post_content": {
+          "name": "post_content",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "platforms": {
+          "name": "platforms",
+          "type": "platform",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_type": {
+          "name": "content_type",
+          "type": "link_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_url": {
+          "name": "original_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "content_summary": {
+          "name": "content_summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "call_to_action_type": {
+          "name": "call_to_action_type",
+          "type": "cta_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sales_pitch_strength": {
+          "name": "sales_pitch_strength",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 100
+        },
+        "tone_profile": {
+          "name": "tone_profile",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "embedding": {
+          "name": "embedding",
+          "type": "vector(1536)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content_summary_embedding": {
+          "name": "content_summary_embedding",
+          "type": "vector(1536)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "link_ownership_type": {
+          "name": "link_ownership_type",
+          "type": "link_ownership_type",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "target_audience": {
+          "name": "target_audience",
+          "type": "target_audience",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "current_timestamp"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "training_posts_original_url_unique": {
+          "name": "training_posts_original_url_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "original_url"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
     }
   },
-  "enums": {},
+  "enums": {
+    "public.cta_type": {
+      "name": "cta_type",
+      "schema": "public",
+      "values": [
+        "learn_more",
+        "sign_up",
+        "buy_now",
+        "read_article",
+        "watch_video",
+        "download",
+        "join_community",
+        "poll_question",
+        "other"
+      ]
+    },
+    "public.link_ownership_type": {
+      "name": "link_ownership_type",
+      "schema": "public",
+      "values": [
+        "own_content",
+        "third_party_content"
+      ]
+    },
+    "public.link_type": {
+      "name": "link_type",
+      "schema": "public",
+      "values": [
+        "self_help",
+        "tech_tutorial",
+        "news_article",
+        "product_review",
+        "thought_leadership",
+        "entertainment",
+        "other"
+      ]
+    },
+    "public.platform": {
+      "name": "platform",
+      "schema": "public",
+      "values": [
+        "twitter",
+        "instagram",
+        "facebook",
+        "linkedin"
+      ]
+    },
+    "public.target_audience": {
+      "name": "target_audience",
+      "schema": "public",
+      "values": [
+        "developers",
+        "marketers",
+        "entrepreneurs",
+        "students",
+        "parents",
+        "general_public",
+        "creatives",
+        "finance_professionals",
+        "other"
+      ]
+    },
+    "public.tone": {
+      "name": "tone",
+      "schema": "public",
+      "values": [
+        "witty",
+        "professional",
+        "inspirational",
+        "casual",
+        "direct",
+        "empathetic"
+      ]
+    }
+  },
   "schemas": {},
   "sequences": {},
   "roles": {},

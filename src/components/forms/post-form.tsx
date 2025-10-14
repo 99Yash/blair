@@ -10,8 +10,7 @@ import {
   Users,
   Volume2,
 } from 'lucide-react';
-import { useState } from 'react';
-import { useFieldArray, useForm } from 'react-hook-form';
+import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { toast } from 'sonner';
 
 import { Button } from '~/components/ui/button';
@@ -23,14 +22,11 @@ import {
   CardTitle,
 } from '~/components/ui/card';
 import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '~/components/ui/form';
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+} from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
 import {
   Select,
@@ -107,7 +103,6 @@ export function PostForm() {
       platform: 'twitter' as const,
       content_type: 'other' as const,
       original_url: '',
-      content_summary: '',
       call_to_action_type: 'learn_more' as const,
       sales_pitch_strength: 100,
       tone_profile: [
@@ -125,7 +120,6 @@ export function PostForm() {
   });
 
   const isSubmitting = form.formState.isSubmitting;
-  const [isScraping, setIsScraping] = useState(false);
 
   const onSubmit = async (data: PostFormData) => {
     try {
@@ -163,16 +157,6 @@ export function PostForm() {
       return;
     }
 
-    // Basic URL validation
-    try {
-      new URL(url);
-    } catch {
-      toast.error('Please enter a valid URL');
-      return;
-    }
-
-    setIsScraping(true);
-
     try {
       const response = await fetch('/api/posts', {
         method: 'POST',
@@ -186,23 +170,6 @@ export function PostForm() {
         const error = await response.json();
         throw new Error(error.error || 'Failed to scrape URL');
       }
-
-      const result = await response.json();
-
-      if (result.success && result.data) {
-        // Populate form fields with scraped data
-        form.setValue('content_type', result.data.content_type);
-        form.setValue('content_summary', result.data.content_summary);
-        form.setValue('target_audience', result.data.target_audience);
-        form.setValue('call_to_action_type', result.data.call_to_action_type);
-
-        // Replace tone profile with scraped tones
-        form.setValue('tone_profile', result.data.tone_profile);
-
-        toast.success('Content analyzed and form populated successfully!');
-      } else {
-        throw new Error('Failed to analyze content');
-      }
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -210,8 +177,6 @@ export function PostForm() {
           : 'Failed to scrape and analyze URL'
       );
       console.error('Scraping error:', error);
-    } finally {
-      setIsScraping(false);
     }
   };
 
@@ -225,423 +190,532 @@ export function PostForm() {
         </p>
       </div>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-          {/* Basic Information Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center space-x-2 pb-2">
-              <FileText className="h-5 w-5 text-primary" />
-              <div>
-                <CardTitle className="text-xl">Basic Information</CardTitle>
-                <CardDescription>Core details for your post.</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <FormField
-                  name="post_content"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Post Content</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Write your post caption here..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <div className="flex justify-between text-xs text-muted-foreground">
-                        <FormDescription>
-                          The main caption or content for your social media post
-                        </FormDescription>
-                        <span>{postContentLength}/280</span>{' '}
-                        {/* Twitter-inspired counter */}
-                      </div>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  name="original_url"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="flex items-center justify-between">
-                        Original URL
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleScrapeAndAnalyze}
-                          disabled={isScraping || !field.value}
-                          className="ml-2"
-                        >
-                          {isScraping ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Analyzing...
-                            </>
-                          ) : (
-                            <>
-                              <Bot className="h-4 w-4 mr-2" />
-                              Analyze Content
-                            </>
-                          )}
-                        </Button>
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="https://example.com/article"
-                          type="url"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        The URL this post is linking to. Click &ldquo;Analyze
-                        Content&rdquo; to automatically fill form fields.
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <FormField
-                  name="platform"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Platform</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select platform" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {PLATFORMS.map((platform) => (
-                            <SelectItem
-                              key={platform.value}
-                              value={platform.value}
-                            >
-                              {platform.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  name="content_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Content Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select content type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {CONTENT_TYPES.map((contentType) => (
-                            <SelectItem
-                              key={contentType.value}
-                              value={contentType.value}
-                            >
-                              {contentType.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                name="target_audience"
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Basic Information Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center space-x-2 pb-2">
+            <FileText className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle className="text-xl">Basic Information</CardTitle>
+              <CardDescription>Core details for your post.</CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Controller
+                name="post_content"
+                control={form.control}
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Target Audience</FormLabel>
+                  <Field>
+                    <FieldLabel>Post Content</FieldLabel>
+                    <Textarea
+                      placeholder="Write your post caption here..."
+                      className="min-h-[100px]"
+                      {...field}
+                    />
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <FieldDescription>
+                        The main caption or content for your social media post
+                      </FieldDescription>
+                      <span>{postContentLength}/280</span>{' '}
+                      {/* Twitter-inspired counter */}
+                    </div>
+                    <FieldError
+                      errors={
+                        form.formState.errors.post_content?.message
+                          ? [
+                              {
+                                message:
+                                  form.formState.errors.post_content.message,
+                              },
+                            ]
+                          : undefined
+                      }
+                    />
+                  </Field>
+                )}
+              />
+
+              <Controller
+                name="original_url"
+                control={form.control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel className="flex items-center justify-between">
+                      Original URL
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleScrapeAndAnalyze}
+                        disabled={!field.value}
+                        className="ml-2"
+                      >
+                        {form.formState.isSubmitting ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Analyzing...
+                          </>
+                        ) : (
+                          <>
+                            <Bot className="h-4 w-4 mr-2" />
+                            Analyze Content
+                          </>
+                        )}
+                      </Button>
+                    </FieldLabel>
+                    <Input
+                      placeholder="https://example.com/article"
+                      type="url"
+                      {...field}
+                    />
+                    <FieldDescription>
+                      The URL this post is linking to. Click &ldquo;Analyze
+                      Content&rdquo; to automatically fill form fields.
+                    </FieldDescription>
+                    <FieldError
+                      errors={
+                        form.formState.errors.original_url?.message
+                          ? [
+                              {
+                                message:
+                                  form.formState.errors.original_url.message,
+                              },
+                            ]
+                          : undefined
+                      }
+                    />
+                  </Field>
+                )}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Controller
+                name="platform"
+                control={form.control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel>Platform</FieldLabel>
                     <Select
                       onValueChange={field.onChange}
                       defaultValue={field.value}
                     >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select target audience" />
-                        </SelectTrigger>
-                      </FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select platform" />
+                      </SelectTrigger>
                       <SelectContent>
-                        {AUDIENCES.map((audience) => (
+                        {PLATFORMS.map((platform) => (
                           <SelectItem
-                            key={audience.value}
-                            value={audience.value}
+                            key={platform.value}
+                            value={platform.value}
                           >
-                            {audience.label}
+                            {platform.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <FormMessage />
-                  </FormItem>
+                    <FieldError
+                      errors={
+                        form.formState.errors.platform?.message
+                          ? [
+                              {
+                                message: form.formState.errors.platform.message,
+                              },
+                            ]
+                          : undefined
+                      }
+                    />
+                  </Field>
                 )}
               />
-            </CardContent>
-          </Card>
 
-          {/* Content Details Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center space-x-2 pb-2">
-              <Users className="h-5 w-5 text-primary" />
+              <Controller
+                name="content_type"
+                control={form.control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel>Content Type</FieldLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select content type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CONTENT_TYPES.map((contentType) => (
+                          <SelectItem
+                            key={contentType.value}
+                            value={contentType.value}
+                          >
+                            {contentType.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldError
+                      errors={
+                        form.formState.errors.content_type?.message
+                          ? [
+                              {
+                                message:
+                                  form.formState.errors.content_type.message,
+                              },
+                            ]
+                          : undefined
+                      }
+                    />
+                  </Field>
+                )}
+              />
+            </div>
+
+            <Controller
+              name="target_audience"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>Target Audience</FieldLabel>
+                  <Select
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select target audience" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AUDIENCES.map((audience) => (
+                        <SelectItem key={audience.value} value={audience.value}>
+                          {audience.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldError
+                    errors={
+                      form.formState.errors.target_audience?.message
+                        ? [
+                            {
+                              message:
+                                form.formState.errors.target_audience.message,
+                            },
+                          ]
+                        : undefined
+                    }
+                  />
+                </Field>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Content Details Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center space-x-2 pb-2">
+            <Users className="h-5 w-5 text-primary" />
+            <div>
+              <CardTitle className="text-xl">Content Details</CardTitle>
+              <CardDescription>
+                Describe the linked content and intent.
+              </CardDescription>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <Controller
+              name="content_summary"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel>Content Summary</FieldLabel>
+                  <Textarea
+                    placeholder="Brief summary of the linked content..."
+                    className="min-h-[80px]"
+                    {...field}
+                  />
+                  <FieldDescription>
+                    A summary of what the linked content is about
+                  </FieldDescription>
+                  <FieldError
+                    errors={
+                      form.formState.errors.content_summary?.message
+                        ? [
+                            {
+                              message:
+                                form.formState.errors.content_summary.message,
+                            },
+                          ]
+                        : undefined
+                    }
+                  />
+                </Field>
+              )}
+            />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Controller
+                name="call_to_action_type"
+                control={form.control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel>Call to Action Type</FieldLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select CTA type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {CTA_TYPES.map((cta) => (
+                          <SelectItem key={cta.value} value={cta.value}>
+                            {cta.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldError
+                      errors={
+                        form.formState.errors.call_to_action_type?.message
+                          ? [
+                              {
+                                message:
+                                  form.formState.errors.call_to_action_type
+                                    .message,
+                              },
+                            ]
+                          : undefined
+                      }
+                    />
+                  </Field>
+                )}
+              />
+
+              <Controller
+                name="link_ownership_type"
+                control={form.control}
+                render={({ field }) => (
+                  <Field>
+                    <FieldLabel>Link Ownership</FieldLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select ownership type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {OWNERSHIP_TYPES.map((ownership) => (
+                          <SelectItem
+                            key={ownership.value}
+                            value={ownership.value}
+                          >
+                            {ownership.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldError
+                      errors={
+                        form.formState.errors.link_ownership_type?.message
+                          ? [
+                              {
+                                message:
+                                  form.formState.errors.link_ownership_type
+                                    .message,
+                              },
+                            ]
+                          : undefined
+                      }
+                    />
+                  </Field>
+                )}
+              />
+            </div>
+
+            <Controller
+              name="sales_pitch_strength"
+              control={form.control}
+              render={({ field }) => (
+                <Field>
+                  <FieldLabel className="flex items-center justify-between">
+                    Sales Pitch Strength
+                    <span className="text-sm font-medium">{field.value}%</span>
+                  </FieldLabel>
+                  <Slider
+                    min={0}
+                    max={100}
+                    step={1}
+                    value={[field.value]}
+                    onValueChange={(value) => field.onChange(value[0])}
+                    className="w-full"
+                  />
+                  <FieldDescription>
+                    How strong should the sales/promotional tone be? (0-100)
+                  </FieldDescription>
+                  <FieldError
+                    errors={
+                      form.formState.errors.sales_pitch_strength?.message
+                        ? [
+                            {
+                              message:
+                                form.formState.errors.sales_pitch_strength
+                                  .message,
+                            },
+                          ]
+                        : undefined
+                    }
+                  />
+                </Field>
+              )}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Tone Profile Card */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
+            <div className="flex items-center space-x-2">
+              <Volume2 className="h-5 w-5 text-primary" />
               <div>
-                <CardTitle className="text-xl">Content Details</CardTitle>
+                <CardTitle className="text-xl">Tone Profile</CardTitle>
                 <CardDescription>
-                  Describe the linked content and intent.
+                  Blend tones for nuanced voice.
                 </CardDescription>
               </div>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <FormField
-                name="content_summary"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Content Summary</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder="Brief summary of the linked content..."
-                        className="min-h-[80px]"
-                        {...field}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                append({ tone: 'professional' as const, weight: 50 })
+              }
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Tone
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {fields.map((field, index) => (
+              <div
+                key={field.id}
+                className="flex items-end gap-4 p-4 border rounded-md bg-muted/50" // Subtle background for items
+              >
+                <Controller
+                  name={`tone_profile.${index}.tone`}
+                  control={form.control}
+                  render={({ field: toneField }) => (
+                    <Field className="flex-1">
+                      <FieldLabel>Tone</FieldLabel>
+                      <Select
+                        onValueChange={toneField.onChange}
+                        defaultValue={toneField.value}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select tone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TONES.map((tone) => (
+                            <SelectItem key={tone.value} value={tone.value}>
+                              {tone.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <FieldError
+                        errors={
+                          form.formState.errors.tone_profile?.[index]?.tone
+                            ?.message
+                            ? [
+                                {
+                                  message:
+                                    form.formState.errors.tone_profile?.[index]
+                                      ?.tone?.message,
+                                },
+                              ]
+                            : undefined
+                        }
                       />
-                    </FormControl>
-                    <FormDescription>
-                      A summary of what the linked content is about
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <FormField
-                  name="call_to_action_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Call to Action Type</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select CTA type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {CTA_TYPES.map((cta) => (
-                            <SelectItem key={cta.value} value={cta.value}>
-                              {cta.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
+                    </Field>
                   )}
                 />
 
-                <FormField
-                  name="link_ownership_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Link Ownership</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select ownership type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {OWNERSHIP_TYPES.map((ownership) => (
-                            <SelectItem
-                              key={ownership.value}
-                              value={ownership.value}
-                            >
-                              {ownership.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                name="sales_pitch_strength"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center justify-between">
-                      Sales Pitch Strength
-                      <span className="text-sm font-medium">
-                        {field.value}%
-                      </span>
-                    </FormLabel>
-                    <FormControl>
+                <Controller
+                  name={`tone_profile.${index}.weight`}
+                  control={form.control}
+                  render={({ field: weightField }) => (
+                    <Field className="flex-1">
+                      <FieldLabel className="flex items-center justify-between">
+                        Weight
+                        <span className="text-sm font-medium">
+                          {weightField.value}%
+                        </span>
+                      </FieldLabel>
                       <Slider
                         min={0}
                         max={100}
                         step={1}
-                        value={[field.value]}
-                        onValueChange={(value) => field.onChange(value[0])}
+                        value={[weightField.value]}
+                        onValueChange={(value) =>
+                          weightField.onChange(value[0])
+                        }
                         className="w-full"
                       />
-                    </FormControl>
-                    <FormDescription>
-                      How strong should the sales/promotional tone be? (0-100)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-          </Card>
-
-          {/* Tone Profile Card */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <div className="flex items-center space-x-2">
-                <Volume2 className="h-5 w-5 text-primary" />
-                <div>
-                  <CardTitle className="text-xl">Tone Profile</CardTitle>
-                  <CardDescription>
-                    Blend tones for nuanced voice.
-                  </CardDescription>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() =>
-                  append({ tone: 'professional' as const, weight: 50 })
-                }
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Tone
-              </Button>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {fields.map((field, index) => (
-                <div
-                  key={field.id}
-                  className="flex items-end gap-4 p-4 border rounded-md bg-muted/50" // Subtle background for items
-                >
-                  <FormField
-                    name={`tone_profile.${index}.tone`}
-                    render={({ field: toneField }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel>Tone</FormLabel>
-                        <Select
-                          onValueChange={toneField.onChange}
-                          defaultValue={toneField.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select tone" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {TONES.map((tone) => (
-                              <SelectItem key={tone.value} value={tone.value}>
-                                {tone.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    name={`tone_profile.${index}.weight`}
-                    render={({ field: weightField }) => (
-                      <FormItem className="flex-1">
-                        <FormLabel className="flex items-center justify-between">
-                          Weight
-                          <span className="text-sm font-medium">
-                            {weightField.value}%
-                          </span>
-                        </FormLabel>
-                        <FormControl>
-                          <Slider
-                            min={0}
-                            max={100}
-                            step={1}
-                            value={[weightField.value]}
-                            onValueChange={(value) =>
-                              weightField.onChange(value[0])
-                            }
-                            className="w-full"
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {fields.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => remove(index)}
-                      className="h-8 w-8"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                      <FieldError
+                        errors={
+                          form.formState.errors.tone_profile?.[index]?.weight
+                            ?.message
+                            ? [
+                                {
+                                  message:
+                                    form.formState.errors.tone_profile?.[index]
+                                      ?.weight?.message,
+                                },
+                              ]
+                            : undefined
+                        }
+                      />
+                    </Field>
                   )}
-                </div>
-              ))}
+                />
 
-              {fields.length === 0 && (
-                <p className="text-muted-foreground text-center py-6">
-                  No tone profiles added. Add at least one tone profile.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                {fields.length > 1 && (
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    onClick={() => remove(index)}
+                    className="h-8 w-8"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
 
-          {/* Submit */}
-          <div className="flex justify-end pt-4">
-            <Button type="submit" size="lg" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                'Save Post Data'
-              )}
-            </Button>
-          </div>
-        </form>
-      </Form>
+            {fields.length === 0 && (
+              <p className="text-muted-foreground text-center py-6">
+                No tone profiles added. Add at least one tone profile.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Submit */}
+        <div className="flex justify-end pt-4">
+          <Button type="submit" size="lg" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              'Save Post Data'
+            )}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

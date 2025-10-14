@@ -9,7 +9,7 @@ import { firecrawl } from '~/lib/firecrawl';
 import {
   postFormSchema,
   scrapedContentAnalysisSchema,
-} from '~/lib/schemas/post-form';
+} from '~/lib/schemas/post';
 import { getErrorMessage } from '~/lib/utils';
 
 const POST_CONTENT_MAX_LENGTH = 100000;

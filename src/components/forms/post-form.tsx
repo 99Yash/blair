@@ -39,7 +39,7 @@ import { Slider } from '~/components/ui/slider';
 import { Textarea } from '~/components/ui/textarea';
 
 import { POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
-import { postFormSchema, type PostFormData } from '~/lib/schemas/post-form';
+import { postFormSchema, type PostFormData } from '~/lib/schemas/post';
 
 const PLATFORMS = [
   { value: 'twitter', label: 'Twitter' },

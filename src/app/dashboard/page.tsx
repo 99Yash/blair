@@ -12,9 +12,5 @@ export default async function DashboardPage() {
     redirect('/signin');
   }
 
-  return (
-    <div className="bg-background">
-      <PostForm />
-    </div>
-  );
+  return <PostForm />;
 }

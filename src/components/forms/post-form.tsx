@@ -38,6 +38,7 @@ import {
 import { Slider } from '~/components/ui/slider';
 import { Textarea } from '~/components/ui/textarea';
 
+import * as React from 'react';
 import { POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
 import { postFormSchema, type PostFormData } from '~/lib/schemas/post';
 
@@ -97,6 +98,7 @@ const CONTENT_TYPES = [
 ] as const;
 
 export function PostForm() {
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
   const form = useForm<PostFormData>({
     resolver: zodResolver(postFormSchema),
     defaultValues: {
@@ -120,10 +122,9 @@ export function PostForm() {
     name: 'tone_profile',
   });
 
-  const isSubmitting = form.formState.isSubmitting;
-
   const onSubmit = async (data: PostFormData) => {
     try {
+      setIsSubmitting(true);
       const response = await fetch('/api/posts', {
         method: 'POST',
         headers: {
@@ -145,6 +146,8 @@ export function PostForm() {
         error instanceof Error ? error.message : 'Failed to save post data'
       );
       console.error('Error saving post:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

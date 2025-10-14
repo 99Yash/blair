@@ -2,6 +2,7 @@ import { openai } from '@ai-sdk/openai';
 import { embedMany, generateObject } from 'ai';
 import { headers } from 'next/headers';
 
+import { and, eq } from 'drizzle-orm';
 import { db } from '~/db';
 import { training_posts } from '~/db/schemas';
 import { auth } from '~/lib/auth/server';
@@ -34,6 +35,22 @@ export async function POST(request: Request) {
   }
 
   try {
+    // Check if user already has a post with this URL
+    const existingPost = await db
+      .select()
+      .from(training_posts)
+      .where(
+        and(
+          eq(training_posts.original_url, validatedBody.original_url),
+          eq(training_posts.user_id, session.user.id)
+        )
+      )
+      .limit(1);
+
+    if (existingPost.length > 0) {
+      return new Response('You have already added this URL', { status: 409 });
+    }
+
     const scrapedContent = await firecrawl.scrape(validatedBody.original_url, {
       formats: ['markdown', 'html'],
       onlyMainContent: true,

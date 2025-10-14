@@ -73,7 +73,7 @@ export const training_posts = pgTable('training_posts', {
   post_content: text('post_content').notNull(),
   platform: platforms('platforms').notNull(),
   content_type: linkTypeEnum('content_type').notNull(),
-  original_url: text('original_url').notNull().unique(),
+  original_url: text('original_url').notNull(),
   content_summary: text('content_summary').notNull(),
   call_to_action_type: ctaTypeEnum('call_to_action_type').notNull(),
   sales_pitch_strength: integer('sales_pitch_strength').notNull().default(100),

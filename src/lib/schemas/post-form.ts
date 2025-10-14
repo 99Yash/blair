@@ -1,10 +1,14 @@
 import * as z from 'zod/v4';
+import { POST_CONTENT_MAX_LENGTH } from '../constants';
 
 export const postFormSchema = z.object({
   post_content: z
     .string()
     .min(1, 'Post content is required')
-    .max(2000, 'Post content must be less than 2000 characters'),
+    .max(
+      POST_CONTENT_MAX_LENGTH,
+      `Post content must be less than ${POST_CONTENT_MAX_LENGTH} characters`
+    ),
   platform: z.enum(['twitter', 'instagram', 'facebook', 'linkedin'], {
     message: 'Platform is required',
   }),

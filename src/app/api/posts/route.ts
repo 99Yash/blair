@@ -10,6 +10,9 @@ import {
   postFormSchema,
   scrapedContentAnalysisSchema,
 } from '~/lib/schemas/post-form';
+import { getErrorMessage } from '~/lib/utils';
+
+const POST_CONTENT_MAX_LENGTH = 100000;
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -26,12 +29,8 @@ export async function POST(request: Request) {
   try {
     validatedBody = postFormSchema.parse(body);
   } catch (error) {
-    // ZodError or generic error
-    const message =
-      error?.issues
-        ? JSON.stringify(error.issues)
-        : error?.message || 'Invalid request body';
-    return new Response(`Validation Error: ${message}`, { status: 400 });
+    const message = getErrorMessage(error);
+    return new Response(message, { status: 400 });
   }
 
   try {
@@ -42,7 +41,7 @@ export async function POST(request: Request) {
     });
 
     const content = scrapedContent.markdown ?? scrapedContent.html ?? '';
-    const slicedContent = content.slice(0, 100000);
+    const slicedContent = content.slice(0, POST_CONTENT_MAX_LENGTH);
 
     console.log('scrapedContent', scrapedContent);
 

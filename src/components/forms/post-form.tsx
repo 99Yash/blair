@@ -38,6 +38,7 @@ import {
 import { Slider } from '~/components/ui/slider';
 import { Textarea } from '~/components/ui/textarea';
 
+import { POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
 import { postFormSchema, type PostFormData } from '~/lib/schemas/post-form';
 
 const PLATFORMS = [
@@ -218,8 +219,10 @@ export function PostForm() {
                       <FieldDescription>
                         The main caption or content for your social media post
                       </FieldDescription>
-                      <span>{postContentLength}/280</span>{' '}
-                      {/* Twitter-inspired counter */}
+                      <span>
+                        {postContentLength}/{POST_CONTENT_MAX_LENGTH}
+                      </span>{' '}
+                      {/* Character counter */}
                     </div>
                     <FieldError
                       errors={

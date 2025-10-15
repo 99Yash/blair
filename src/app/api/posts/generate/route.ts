@@ -1,20 +1,13 @@
-import { openai } from '@ai-sdk/openai';
-import { generateObject } from 'ai';
 import { headers } from 'next/headers';
 
 import { and, eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
+import { teaserGenerationAgent } from '~/lib/ai/agents';
 import { auth } from '~/lib/auth/server';
-import { firecrawl } from '~/lib/firecrawl';
-import {
-  postFormSchema,
-  scrapedContentAnalysisSchema,
-} from '~/lib/schemas/post';
+import { postFormSchema } from '~/lib/schemas/post';
 import { getErrorMessage } from '~/lib/utils';
-
-const POST_CONTENT_MAX_LENGTH = 100000;
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -59,40 +52,66 @@ export async function POST(request: Request) {
       );
     }
 
-    const scrapedContent = await firecrawl.scrape(validatedBody.original_url, {
-      formats: ['markdown', 'html'],
-      onlyMainContent: true,
-      waitFor: 1000,
-    });
+    // --- Agent Orchestration ---
+    // The agent will decide to call scrape_website, then search_vector_database,
+    // and then formulate the final social media post.
+    const { experimental_output: agentOutput } =
+      await teaserGenerationAgent.generate({
+        // The prompt to the agent, providing all necessary user input
+        prompt: `Generate a social media post for the user's provided link.
+               User's URL: ${validatedBody.original_url}
+               Target Platform: ${validatedBody.platform}
+               Link Ownership: ${validatedBody.link_ownership_type}
+               
+               User's explicit preferences for the generated post (use these if suitable, otherwise infer from content):
+               Desired Content Type: ${validatedBody.content_type || 'any'}
+               Desired Target Audience: ${
+                 validatedBody.target_audience || 'any'
+               }
+               Desired Tone Profile: ${JSON.stringify(
+                 validatedBody.tone_profile
+               )}
+               Desired Call to Action: ${
+                 validatedBody.call_to_action_type || 'any'
+               }
+               Desired Sales Pitch Strength: ${
+                 validatedBody.sales_pitch_strength || 'any'
+               }/10
+               
+               Your task is to:
+               1. Scrape and analyze the content at the provided URL.
+               2. Use the analysis and user preferences to find relevant training posts from the vector database.
+               3. Generate an engaging social media post (or thread if appropriate for platform) based on the user's link, inferred content details, and the retrieved examples.
+               4. Ensure the output strictly follows the defined output schema.`,
+      });
 
-    const content = scrapedContent.markdown ?? scrapedContent.html ?? '';
-    const slicedContent = content.slice(0, POST_CONTENT_MAX_LENGTH);
+    // Extract values from the agent's structured output
+    const generatedPostText = agentOutput.generated_post_content;
+    const contentSummary = agentOutput.content_summary_of_link;
+    const inferredContentType = agentOutput.inferred_content_type;
+    const inferredTargetAudience = agentOutput.inferred_target_audience;
+    // You could store the inferred tone_profile, cta, sales_pitch_strength as well if your generate_posts schema allows for it.
 
-    const { object: analysis } = await generateObject({
-      model: openai('gpt-4o-mini'),
-      schema: scrapedContentAnalysisSchema,
-      prompt: `Analyze the following scraped content: ${slicedContent} and return the analysis in the schema provided.`,
-    });
-
+    // --- Store the generated post ---
     await db.insert(generate_posts).values({
       original_url: validatedBody.original_url,
-      post_content: scrapedContent.markdown ?? '',
+      post_content: generatedPostText,
       platform: validatedBody.platform,
-      content_type: validatedBody.content_type,
-      content_summary: analysis.content_summary,
+      content_type: inferredContentType, // Use inferred type
+      content_summary: contentSummary, // Store the scraped summary
       link_ownership_type: validatedBody.link_ownership_type,
-      target_audience: validatedBody.target_audience,
+      target_audience: inferredTargetAudience, // Use inferred audience
       user_id: session.user.id,
     });
 
     return NextResponse.json(
-      { message: 'Post created successfully' },
+      { message: 'Post created successfully', generatedPostText },
       { status: 201 }
     );
   } catch (error) {
-    console.error('Error scraping and analyzing URL:', error);
+    console.error('Error generating post:', error);
     return NextResponse.json(
-      { message: 'Internal Server Error' },
+      { message: 'Internal Server Error', error: getErrorMessage(error) },
       { status: 500 }
     );
   }

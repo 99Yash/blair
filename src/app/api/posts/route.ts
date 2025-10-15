@@ -26,7 +26,14 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
-  const validatedBody = postFormSchema.parse(body);
+  const parseResult = postFormSchema.safeParse(body);
+  if (!parseResult.success) {
+    return NextResponse.json(
+      { message: 'Validation error', errors: parseResult.error.errors },
+      { status: 400 }
+    );
+  }
+  const validatedBody = parseResult.data;
 
   try {
     // Check if user already has a post with this URL

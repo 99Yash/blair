@@ -12,7 +12,6 @@ import {
   postFormSchema,
   scrapedContentAnalysisSchema,
 } from '~/lib/schemas/post';
-import { getErrorMessage } from '~/lib/utils';
 
 const POST_CONTENT_MAX_LENGTH = 100000;
 
@@ -27,13 +26,7 @@ export async function POST(request: Request) {
 
   const body = await request.json();
 
-  let validatedBody;
-  try {
-    validatedBody = postFormSchema.parse(body);
-  } catch (error) {
-    const message = getErrorMessage(error);
-    return NextResponse.json({ message }, { status: 400 });
-  }
+  const validatedBody = postFormSchema.parse(body);
 
   try {
     // Check if user already has a post with this URL

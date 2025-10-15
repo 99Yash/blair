@@ -125,7 +125,7 @@ export function PostForm() {
   const onSubmit = async (data: PostFormData) => {
     try {
       setIsSubmitting(true);
-      const response = await fetch('/api/posts', {
+      const response = await fetch('/api/posts/train', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

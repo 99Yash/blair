@@ -423,11 +423,17 @@ Generate an engaging social media post that promotes this link effectively. Make
               'success'
             )
           );
-        } catch (error: any) {
+        } catch (error) {
+          // Narrow the unknown error to access optional `code` and `message` properties safely
+          const dbError =
+            typeof error === 'object' && error !== null
+              ? (error as { code?: string; message?: string })
+              : undefined;
+
           // Handle unique constraint violation
           if (
-            error?.code === '23505' ||
-            error?.message?.includes('unique constraint')
+            dbError?.code === '23505' ||
+            dbError?.message?.includes('unique constraint')
           ) {
             writer.write(
               createProgressData(

@@ -133,6 +133,6 @@ export function createGeneratedPostData(
 
 // Utility type for extracting data types
 export type StreamingDataType<K extends keyof StreamingDataMap> = {
-  type: K;
+  type: `data-${K}`;
   data: StreamingDataMap[K];
 };

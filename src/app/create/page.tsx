@@ -1,7 +1,7 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, easeOut, motion } from 'motion/react';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Streamdown } from 'streamdown';
@@ -173,7 +173,7 @@ const fadeInUp = {
   initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -8 },
-  transition: { duration: 0.18, ease: 'easeOut' },
+  transition: { duration: 0.18, ease: easeOut },
 };
 
 const fadeIn = {
@@ -821,7 +821,7 @@ export default function CreatePage() {
                         transition={{
                           repeat: Number.POSITIVE_INFINITY,
                           duration: 1.2,
-                          ease: 'linear',
+                          ease: easeOut,
                         }}
                       />
                     </div>

@@ -312,7 +312,7 @@ Return an object with these exact fields:
           messages: [
             {
               role: 'user',
-              content: `Generate a social media post for the following link.
+              content: `Generate a social media post for the following link. Don't use redundant emojis.
 
 URL: ${submissionData.original_url}
 Platform: ${submissionData.platform}

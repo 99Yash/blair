@@ -1,8 +1,10 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Streamdown } from 'streamdown';
 import * as z from 'zod/v4';
 
 import {
@@ -166,6 +168,21 @@ type TrainingPostsState = {
   }>;
 };
 
+// Motion variants
+const fadeInUp = {
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -8 },
+  transition: { duration: 0.18, ease: 'easeOut' },
+};
+
+const fadeIn = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: 0.2 },
+};
+
 export default function CreatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedPost, setGeneratedPost] = useState<string | null>(null);
@@ -293,7 +310,21 @@ export default function CreatePage() {
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
-              const data = JSON.parse(line.slice(6));
+              const jsonStr = line.slice(6).trim();
+
+              // Skip empty data
+              if (!jsonStr) continue;
+
+              // Skip SSE end markers and non-JSON content
+              if (jsonStr === '[DONE]' || jsonStr.startsWith(':')) continue;
+
+              const data = JSON.parse(jsonStr);
+
+              // Validate that data has the expected structure
+              if (!data || typeof data !== 'object' || !data.type) {
+                console.warn('Invalid streaming data structure:', data);
+                continue;
+              }
 
               // Handle different data part types
               if (data.type === 'data-progress') {
@@ -324,7 +355,12 @@ export default function CreatePage() {
                 });
               }
             } catch (parseError) {
-              console.error('Error parsing streaming data:', parseError);
+              console.error(
+                'Error parsing streaming data:',
+                parseError,
+                'Line:',
+                line
+              );
             }
           }
         }
@@ -574,85 +610,81 @@ export default function CreatePage() {
                     Advanced Settings
                   </h3>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <FormLabel className="text-sm font-medium">
-                        Tone Profile (Optional)
-                      </FormLabel>
+                  <div className="flex items-center justify-between">
+                    <FormLabel className="text-sm font-medium">
+                      Tone Profile (Optional)
+                    </FormLabel>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addToneProfile}
+                      className="h-8 px-3 bg-transparent"
+                    >
+                      <Plus className="w-3 h-3 mr-1" />
+                      Add Tone
+                    </Button>
+                  </div>
+
+                  {form.watch('tone_profile')?.map((toneProfile, index) => (
+                    <motion.div
+                      key={index}
+                      className="flex items-center gap-3 p-3 border rounded-md bg-muted/30"
+                      {...fadeInUp}
+                    >
+                      <Select
+                        value={toneProfile.tone}
+                        onValueChange={(value) =>
+                          updateToneProfile(index, 'tone', value)
+                        }
+                      >
+                        <SelectTrigger className="w-32 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {toneOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs text-muted-foreground">
+                            Weight:
+                          </span>
+                          <span className="text-sm font-medium">
+                            {toneProfile.weight}%
+                          </span>
+                        </div>
+                        <Slider
+                          value={[toneProfile.weight]}
+                          onValueChange={([value]) =>
+                            updateToneProfile(index, 'weight', value)
+                          }
+                          max={100}
+                          step={5}
+                          className="h-6"
+                        />
+                      </div>
+
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        onClick={addToneProfile}
-                        className="h-8 px-3"
+                        onClick={() => removeToneProfile(index)}
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                       >
-                        <Plus className="w-3 h-3 mr-1" />
-                        Add Tone
+                        <X className="w-3 h-3" />
                       </Button>
-                    </div>
+                    </motion.div>
+                  ))}
 
-                    {form.watch('tone_profile')?.map((toneProfile, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 p-3 border rounded-md bg-muted/30"
-                      >
-                        <Select
-                          value={toneProfile.tone}
-                          onValueChange={(value) =>
-                            updateToneProfile(index, 'tone', value)
-                          }
-                        >
-                          <SelectTrigger className="w-32 h-8">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {toneOptions.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-xs text-muted-foreground">
-                              Weight:
-                            </span>
-                            <span className="text-sm font-medium">
-                              {toneProfile.weight}%
-                            </span>
-                          </div>
-                          <Slider
-                            value={[toneProfile.weight]}
-                            onValueChange={([value]) =>
-                              updateToneProfile(index, 'weight', value)
-                            }
-                            max={100}
-                            step={5}
-                            className="h-6"
-                          />
-                        </div>
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeToneProfile(index)}
-                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    ))}
-
-                    <FormDescription className="text-xs">
-                      Leave blank for AI to infer from content
-                    </FormDescription>
-                  </div>
+                  <FormDescription className="text-xs">
+                    Leave blank for AI to infer from content
+                  </FormDescription>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
@@ -758,135 +790,252 @@ export default function CreatePage() {
             notifications.length > 0 ||
             contentAnalysis ||
             trainingPosts) && (
-            <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <CardTitle className="text-base">
-                    Generation Progress
-                  </CardTitle>
-                </div>
-                <CardDescription className="text-xs text-muted-foreground">
-                  Real-time updates on your post generation
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-2">
-                {/* Current Progress */}
-                {currentProgress && (
-                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                    {currentProgress.status === 'loading' && (
-                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                    )}
-                    {currentProgress.status === 'success' && (
-                      <CheckCircle className="w-4 h-4 text-green-500" />
-                    )}
-                    {currentProgress.status === 'error' && (
-                      <AlertCircle className="w-4 h-4 text-red-500" />
-                    )}
-                    <div className="flex-1">
-                      <div className="font-medium text-sm">
-                        {currentProgress.message}
-                      </div>
-                      {currentProgress.details && (
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {currentProgress.details}
-                        </div>
-                      )}
-                    </div>
-                    <Badge
-                      variant={
-                        currentProgress.status === 'loading'
-                          ? 'secondary'
-                          : currentProgress.status === 'success'
-                          ? 'default'
-                          : 'destructive'
-                      }
-                      className="text-xs"
+            <motion.div
+              layout
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              variants={fadeIn}
+            >
+              <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-4 h-4 text-muted-foreground" />
+                    <CardTitle className="text-base">
+                      Generation Progress
+                    </CardTitle>
+                  </div>
+                  <CardDescription className="text-xs text-muted-foreground">
+                    Real-time updates on your post generation
+                  </CardDescription>
+
+                  {/* Subtle indeterminate progress bar during loading */}
+                  {(isSubmitting || currentProgress?.status === 'loading') && (
+                    <div
+                      className="mt-3 relative h-1 rounded bg-muted overflow-hidden"
+                      aria-hidden="true"
                     >
-                      {currentProgress.stage}
-                    </Badge>
-                  </div>
-                )}
+                      <motion.div
+                        className="absolute inset-y-0 left-0 w-1/3 bg-primary"
+                        animate={{ x: ['-100%', '100%'] }}
+                        transition={{
+                          repeat: Number.POSITIVE_INFINITY,
+                          duration: 1.2,
+                          ease: 'linear',
+                        }}
+                      />
+                    </div>
+                  )}
+                </CardHeader>
 
-                {/* Notifications */}
-                {notifications.length > 0 && (
-                  <div className="space-y-1.5">
-                    {notifications.map((notification, index) => (
-                      <div
-                        key={index}
-                        className={`flex items-center gap-2 p-2 rounded-md text-xs ${
-                          notification.level === 'error'
-                            ? 'bg-red-50 text-red-700 border border-red-200'
-                            : notification.level === 'warning'
-                            ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                            : notification.level === 'success'
-                            ? 'bg-green-50 text-green-700 border border-green-200'
-                            : 'bg-blue-50 text-blue-700 border border-blue-200'
-                        }`}
+                <CardContent className="space-y-3 pt-2">
+                  {/* Current Progress */}
+                  <AnimatePresence mode="popLayout">
+                    {currentProgress && (
+                      <motion.div
+                        key={`${currentProgress.stage}-${currentProgress.status}`}
+                        layout
+                        initial={fadeInUp.initial}
+                        animate={fadeInUp.animate}
+                        exit={fadeInUp.exit}
+                        transition={fadeInUp.transition}
+                        className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+                        role="status"
+                        aria-live="polite"
                       >
-                        <Info className="w-3 h-3" />
-                        {notification.message}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Content Analysis Results */}
-                {contentAnalysis && (
-                  <div className="p-3 bg-blue-50/80 rounded-lg border border-blue-200/60">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      <span className="font-medium text-blue-900 text-sm">
-                        Content Analyzed
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div className="flex items-center gap-1">
-                        <span className="text-blue-700">Type:</span>
-                        <Badge
-                          variant="secondary"
-                          className="text-xs px-1.5 py-0.5 h-5"
-                        >
-                          {contentAnalysis.content_type}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <span className="text-blue-700">Audience:</span>
-                        <Badge
-                          variant="secondary"
-                          className="text-xs px-1.5 py-0.5 h-5"
-                        >
-                          {contentAnalysis.target_audience}
-                        </Badge>
-                      </div>
-                      {contentAnalysis.call_to_action_type && (
-                        <div className="flex items-center gap-1 col-span-2">
-                          <span className="text-blue-700">CTA:</span>
-                          <Badge
-                            variant="secondary"
-                            className="text-xs px-1.5 py-0.5 h-5"
+                        {currentProgress.status === 'loading' && (
+                          <motion.div
+                            initial={{ scale: 0.9, opacity: 0.8 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{
+                              repeat: Number.POSITIVE_INFINITY,
+                              repeatType: 'mirror',
+                              duration: 0.8,
+                            }}
                           >
-                            {contentAnalysis.call_to_action_type}
-                          </Badge>
+                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                          </motion.div>
+                        )}
+                        {currentProgress.status === 'success' && (
+                          <motion.div
+                            initial={{ scale: 0.8, rotate: -10, opacity: 0 }}
+                            animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                            transition={{
+                              type: 'spring',
+                              stiffness: 300,
+                              damping: 20,
+                            }}
+                          >
+                            <CheckCircle className="w-4 h-4 text-green-500" />
+                          </motion.div>
+                        )}
+                        {currentProgress.status === 'error' && (
+                          <motion.div
+                            initial={{ scale: 0.9, opacity: 0.8 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                          >
+                            <AlertCircle className="w-4 h-4 text-red-500" />
+                          </motion.div>
+                        )}
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">
+                            {currentProgress.message}
+                          </div>
+                          {currentProgress.details && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {currentProgress.details}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+                        <motion.div layout>
+                          <Badge
+                            variant={
+                              currentProgress.status === 'loading'
+                                ? 'secondary'
+                                : currentProgress.status === 'success'
+                                ? 'default'
+                                : 'destructive'
+                            }
+                            className="text-xs"
+                          >
+                            {currentProgress.stage}
+                          </Badge>
+                        </motion.div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                {/* Training Posts Results */}
-                {trainingPosts && (
-                  <div className="p-3 bg-purple-50/80 rounded-lg border border-purple-200/60">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                      <span className="font-medium text-purple-900 text-sm">
-                        Found {trainingPosts.count} Similar Posts
-                      </span>
+                  {/* Notifications */}
+                  {notifications.length > 0 && (
+                    <div className="space-y-1.5">
+                      <AnimatePresence initial={false}>
+                        {notifications.map((notification, index) => (
+                          <motion.div
+                            key={`${notification.message}-${index}`}
+                            layout
+                            initial={{ opacity: 0, x: 12 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -12 }}
+                            transition={{
+                              type: 'spring',
+                              stiffness: 300,
+                              damping: 24,
+                            }}
+                            className={`flex items-center gap-2 p-2 rounded-md text-xs ${
+                              notification.level === 'error'
+                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                : notification.level === 'warning'
+                                ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                                : notification.level === 'success'
+                                ? 'bg-green-50 text-green-700 border border-green-200'
+                                : 'bg-blue-50 text-blue-700 border border-blue-200'
+                            }`}
+                            role="status"
+                            aria-live="polite"
+                          >
+                            <Info className="w-3 h-3" />
+                            {notification.message}
+                          </motion.div>
+                        ))}
+                      </AnimatePresence>
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  )}
+
+                  {/* Content Analysis Results */}
+                  <AnimatePresence>
+                    {contentAnalysis && (
+                      <motion.div
+                        key="content-analysis"
+                        layout
+                        initial={fadeInUp.initial}
+                        animate={fadeInUp.animate}
+                        exit={fadeInUp.exit}
+                        transition={fadeInUp.transition}
+                        className="p-3 bg-blue-50/80 rounded-lg border border-blue-200/60"
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <motion.div
+                            className="w-2 h-2 bg-blue-500 rounded-full"
+                            initial={{ scale: 0.6, opacity: 0.6 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{
+                              type: 'spring',
+                              stiffness: 260,
+                              damping: 20,
+                            }}
+                          />
+                          <span className="font-medium text-blue-900 text-sm">
+                            Content Analyzed
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="flex items-center gap-1">
+                            <span className="text-blue-700">Type:</span>
+                            <Badge
+                              variant="secondary"
+                              className="text-xs px-1.5 py-0.5 h-5"
+                            >
+                              {contentAnalysis.content_type}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-blue-700">Audience:</span>
+                            <Badge
+                              variant="secondary"
+                              className="text-xs px-1.5 py-0.5 h-5"
+                            >
+                              {contentAnalysis.target_audience}
+                            </Badge>
+                          </div>
+                          {contentAnalysis.call_to_action_type && (
+                            <div className="flex items-center gap-1 col-span-2">
+                              <span className="text-blue-700">CTA:</span>
+                              <Badge
+                                variant="secondary"
+                                className="text-xs px-1.5 py-0.5 h-5"
+                              >
+                                {contentAnalysis.call_to_action_type}
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Training Posts Results */}
+                  <AnimatePresence>
+                    {trainingPosts && (
+                      <motion.div
+                        key="training-posts"
+                        layout
+                        initial={fadeInUp.initial}
+                        animate={fadeInUp.animate}
+                        exit={fadeInUp.exit}
+                        transition={fadeInUp.transition}
+                        className="p-3 bg-purple-50/80 rounded-lg border border-purple-200/60"
+                      >
+                        <div className="flex items-center gap-2">
+                          <motion.div
+                            className="w-2 h-2 bg-purple-500 rounded-full"
+                            initial={{ scale: 0.6, opacity: 0.6 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{
+                              type: 'spring',
+                              stiffness: 260,
+                              damping: 20,
+                            }}
+                          />
+                          <span className="font-medium text-purple-900 text-sm">
+                            Found {trainingPosts.count} Similar Posts
+                          </span>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </CardContent>
+              </Card>
+            </motion.div>
           )}
 
           {error && (
@@ -906,47 +1055,61 @@ export default function CreatePage() {
           )}
 
           {generatedPost && (
-            <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
-              <CardHeader className="pb-3">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-5 h-5 text-green-500" />
-                  <CardTitle className="text-lg">Post Generated</CardTitle>
-                </div>
-                <CardDescription className="text-sm">
-                  Ready to share on {form.watch('platform')}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <div className="p-4 bg-muted/50 rounded-lg border">
-                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {generatedPost}
-                  </p>
-                </div>
-                <div className="mt-4 flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    onClick={() => {
-                      navigator.clipboard.writeText(generatedPost);
-                    }}
-                  >
-                    Copy to Clipboard
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8"
-                    onClick={resetForm}
-                  >
-                    Create Another
-                  </Button>
-                  <Button size="sm" className="h-8">
-                    Post to {form.watch('platform')}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+            <AnimatePresence>
+              <motion.div
+                key="generated-post"
+                layout
+                initial={fadeInUp.initial}
+                animate={fadeInUp.animate}
+                exit={fadeInUp.exit}
+                transition={fadeInUp.transition}
+              >
+                <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <CardTitle className="text-lg">Post Generated</CardTitle>
+                    </div>
+                    <CardDescription className="text-sm">
+                      Ready to share on {form.watch('platform')}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="pt-2">
+                    <div className="p-4 bg-muted/50 rounded-lg border">
+                      <Streamdown
+                        className="text-sm leading-relaxed prose prose-sm max-w-none"
+                        parseIncompleteMarkdown={true}
+                      >
+                        {generatedPost}
+                      </Streamdown>
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 bg-transparent"
+                        onClick={() => {
+                          navigator.clipboard.writeText(generatedPost);
+                        }}
+                      >
+                        Copy to Clipboard
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 bg-transparent"
+                        onClick={resetForm}
+                      >
+                        Create Another
+                      </Button>
+                      <Button size="sm" className="h-8">
+                        Post to {form.watch('platform')}
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            </AnimatePresence>
           )}
         </div>
       </div>

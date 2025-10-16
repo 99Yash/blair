@@ -71,12 +71,12 @@ export function UserDropdown() {
         <DropdownMenuSeparator />
 
         <div className="p-2">
-          <Link href="/create">
-            <DropdownMenuItem className="cursor-pointer">
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/create">
               <Plus className="mr-2 h-4 w-4" />
               <span>Create Post</span>
-            </DropdownMenuItem>
-          </Link>
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer">
             <Sparkles className="mr-2 h-4 w-4" />
             <span>Getting Started</span>

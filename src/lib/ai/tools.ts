@@ -1,6 +1,6 @@
 import { openai } from '@ai-sdk/openai';
 import { generateObject, tool } from 'ai';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, or, sql } from 'drizzle-orm';
 import * as z from 'zod/v4';
 import { db } from '~/db';
 import {
@@ -128,21 +128,15 @@ export const searchTrainingPostsTool = tool({
     try {
       // Build dynamic where clauses for exact matches first
       const exactMatchClauses = [];
-      const fallbackClauses = [];
 
       if (platform) {
         exactMatchClauses.push(eq(training_posts.platform, platform));
-        fallbackClauses.push(eq(training_posts.platform, platform));
       }
       if (link_type) {
         exactMatchClauses.push(eq(training_posts.content_type, link_type));
-        fallbackClauses.push(eq(training_posts.content_type, link_type));
       }
       if (link_ownership_type) {
         exactMatchClauses.push(
-          eq(training_posts.link_ownership_type, link_ownership_type)
-        );
-        fallbackClauses.push(
           eq(training_posts.link_ownership_type, link_ownership_type)
         );
       }
@@ -150,15 +144,9 @@ export const searchTrainingPostsTool = tool({
         exactMatchClauses.push(
           eq(training_posts.target_audience, target_audience)
         );
-        fallbackClauses.push(
-          eq(training_posts.target_audience, target_audience)
-        );
       }
       if (call_to_action_type) {
         exactMatchClauses.push(
-          eq(training_posts.call_to_action_type, call_to_action_type)
-        );
-        fallbackClauses.push(
           eq(training_posts.call_to_action_type, call_to_action_type)
         );
       }
@@ -171,9 +159,6 @@ export const searchTrainingPostsTool = tool({
         const minStrength = min_sales_pitch_strength || 1;
         const maxStrength = max_sales_pitch_strength || 10;
         exactMatchClauses.push(
-          sql`${training_posts.sales_pitch_strength} >= ${minStrength} AND ${training_posts.sales_pitch_strength} <= ${maxStrength}`
-        );
-        fallbackClauses.push(
           sql`${training_posts.sales_pitch_strength} >= ${minStrength} AND ${training_posts.sales_pitch_strength} <= ${maxStrength}`
         );
       }
@@ -191,7 +176,7 @@ export const searchTrainingPostsTool = tool({
       }
 
       // If no exact matches found, try broader search
-      if (results.length === 0 && fallbackClauses.length > 0) {
+      if (results.length === 0 && exactMatchClauses.length > 0) {
         // Try with fewer filters - prioritize the most important ones
         const priorityFilters = [];
         if (platform)
@@ -224,7 +209,11 @@ export const searchTrainingPostsTool = tool({
             const anyMatchQuery = db
               .select()
               .from(training_posts)
-              .where(and(...anyMatchClauses))
+              .where(
+                anyMatchClauses.length === 1
+                  ? anyMatchClauses[0]
+                  : or(...anyMatchClauses)
+              )
               .limit(limit);
             results = await anyMatchQuery;
           }

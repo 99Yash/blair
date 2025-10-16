@@ -734,9 +734,13 @@ export default function CreatePage() {
                           <FormControl>
                             <div className="space-y-3">
                               <Slider
-                                value={[field.value || 5]}
+                                value={[
+                                  field.value
+                                    ? Math.round(field.value / 10)
+                                    : 5,
+                                ]}
                                 onValueChange={([value]) =>
-                                  field.onChange(value)
+                                  field.onChange(value * 10)
                                 }
                                 max={10}
                                 min={1}
@@ -746,7 +750,10 @@ export default function CreatePage() {
                               <div className="flex justify-between text-xs text-muted-foreground">
                                 <span>Subtle (1)</span>
                                 <span className="font-medium">
-                                  {field.value || 5}/10
+                                  {field.value
+                                    ? Math.round(field.value / 10)
+                                    : 5}
+                                  /10
                                 </span>
                                 <span>Aggressive (10)</span>
                               </div>

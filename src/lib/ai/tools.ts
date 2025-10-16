@@ -1,5 +1,5 @@
 import { openai } from '@ai-sdk/openai';
-import { embed, generateObject, tool } from 'ai';
+import { generateObject, tool } from 'ai';
 import { and, eq, sql } from 'drizzle-orm';
 import * as z from 'zod/v4';
 import { db } from '~/db';
@@ -49,25 +49,11 @@ export const scrapeWebsiteTool = tool({
   },
 });
 
-export const searchVectorDatabaseTool = tool({
-  name: 'search_vector_database',
+export const searchTrainingPostsTool = tool({
+  name: 'search_training_posts',
   description:
-    'Search the vector database for the most relevant training posts. This tool helps find examples of successful social media posts or newsletter snippets that teased a particular type of content, matching by content type, style, audience, and ownership.',
+    'Search the database for relevant training posts based on platform, content type, tone profile, target audience, and other criteria. This tool helps find examples of successful social media posts that match the desired characteristics.',
   inputSchema: z.object({
-    // The main semantic query for the *teaser style*. This is what the user *wants* the generated teaser to sound like.
-    query: z
-      .string()
-      .describe(
-        'A semantic description of the desired teaser style, tone, or specific elements (e.g., "witty problem-solution hook," "direct call to action for developers"). This will be used to search against the teaser embeddings.'
-      ),
-
-    // Summary of the *user's linked content*. This is critical for finding training posts promoting similar content.
-    content_summary_of_user_link: z
-      .string()
-      .describe(
-        "A summary of the end-user's linked content (the article, course, etc. they want to promote). Used to find training posts promoting semantically similar content."
-      ),
-
     // Filters to refine the search. These map directly to our schema fields.
     link_type: z
       .enum(linkTypeEnum.enumValues)
@@ -129,8 +115,6 @@ export const searchVectorDatabaseTool = tool({
       .describe('The maximum number of relevant training posts to retrieve.'),
   }),
   execute: async ({
-    query,
-    content_summary_of_user_link,
     link_type,
     platform,
     link_ownership_type,
@@ -142,114 +126,123 @@ export const searchVectorDatabaseTool = tool({
     limit = 5,
   }) => {
     try {
-      // Step 1: Embed the user's content summary for content-based similarity
-      const userContentSummaryEmbedding = await embed({
-        model: openai.textEmbeddingModel('text-embedding-3-small'),
-        value: content_summary_of_user_link,
-      });
+      // Build dynamic where clauses for exact matches first
+      const exactMatchClauses = [];
+      const fallbackClauses = [];
 
-      // Step 2: Embed the stylistic query for teaser-style similarity
-      const teaserStyleQueryEmbedding = await embed({
-        model: openai.textEmbeddingModel('text-embedding-3-small'),
-        value: query,
-      });
-
-      // Construct a dynamic query for Drizzle + vector DB
-      let baseQuery = db.select().from(training_posts).$dynamic(); // Allows for dynamic WHERE clauses
-
-      // --- Apply Filters ---
-      let whereClauses = [];
-
-      if (link_type) {
-        whereClauses.push(eq(training_posts.content_type, link_type));
-      }
       if (platform) {
-        whereClauses.push(eq(training_posts.platform, platform));
+        exactMatchClauses.push(eq(training_posts.platform, platform));
+        fallbackClauses.push(eq(training_posts.platform, platform));
+      }
+      if (link_type) {
+        exactMatchClauses.push(eq(training_posts.content_type, link_type));
+        fallbackClauses.push(eq(training_posts.content_type, link_type));
       }
       if (link_ownership_type) {
-        whereClauses.push(
+        exactMatchClauses.push(
+          eq(training_posts.link_ownership_type, link_ownership_type)
+        );
+        fallbackClauses.push(
           eq(training_posts.link_ownership_type, link_ownership_type)
         );
       }
       if (target_audience) {
-        // Assuming target_audience is still a single enum value for now
-        whereClauses.push(eq(training_posts.target_audience, target_audience));
+        exactMatchClauses.push(
+          eq(training_posts.target_audience, target_audience)
+        );
+        fallbackClauses.push(
+          eq(training_posts.target_audience, target_audience)
+        );
       }
       if (call_to_action_type) {
-        whereClauses.push(
+        exactMatchClauses.push(
+          eq(training_posts.call_to_action_type, call_to_action_type)
+        );
+        fallbackClauses.push(
           eq(training_posts.call_to_action_type, call_to_action_type)
         );
       }
 
-      // Combine WHERE clauses
-      if (whereClauses.length > 0) {
-        baseQuery = baseQuery.where(and(...whereClauses));
+      // Sales pitch strength filter
+      if (
+        min_sales_pitch_strength !== undefined ||
+        max_sales_pitch_strength !== undefined
+      ) {
+        const minStrength = min_sales_pitch_strength || 1;
+        const maxStrength = max_sales_pitch_strength || 10;
+        exactMatchClauses.push(
+          sql`${training_posts.sales_pitch_strength} >= ${minStrength} AND ${training_posts.sales_pitch_strength} <= ${maxStrength}`
+        );
+        fallbackClauses.push(
+          sql`${training_posts.sales_pitch_strength} >= ${minStrength} AND ${training_posts.sales_pitch_strength} <= ${maxStrength}`
+        );
       }
 
-      // --- Vector Search for Content Similarity (Primary Retrieval) ---
-      // This part depends on your specific vector DB integration (e.g., pgvector syntax)
-      // Assuming 'vector' column has operators like '<=>' for cosine distance
-      const contentSimilarPosts = await db
-        .select()
-        .from(training_posts)
-        .where(
-          and(
-            // Apply other filters here as well
-            ...whereClauses,
-            sql`training_posts.content_summary_embedding <-> ${userContentSummaryEmbedding} < 0.2` // Example: threshold for content similarity
-          )
-        )
-        .orderBy(
-          sql`training_posts.content_summary_embedding <-> ${userContentSummaryEmbedding}`
-        )
-        .limit(limit * 2) // Retrieve more candidates for further refinement
-        .execute();
+      // First, try to find exact matches
+      let results: (typeof training_posts.$inferSelect)[] = [];
+      if (exactMatchClauses.length > 0) {
+        const exactMatchQuery = db
+          .select()
+          .from(training_posts)
+          .where(and(...exactMatchClauses))
+          .limit(limit);
 
-      // --- Re-rank / Filter by Teaser Style Similarity and Desired Tone (Secondary Refinement) ---
-      // For each candidate, calculate its teaser style similarity and factor in desired tone
-      const rankedPosts = contentSimilarPosts
-        .map((post) => {
-          // Assuming a function that calculates similarity (e.g., dot product, cosine)
-          const teaserStyleSimilarity = calculateCosineSimilarity(
-            teaserStyleQueryEmbedding.embedding,
-            post.embedding ?? []
-          );
+        results = await exactMatchQuery;
+      }
 
-          // Factor in desired tone: Boost score if the desired_tone is present in tone_profile
-          let toneBoost = 0;
-          if (desired_tone && post.tone_profile) {
-            const toneEntry = post.tone_profile.find(
-              (t) => t.tone === desired_tone
+      // If no exact matches found, try broader search
+      if (results.length === 0 && fallbackClauses.length > 0) {
+        // Try with fewer filters - prioritize the most important ones
+        const priorityFilters = [];
+        if (platform)
+          priorityFilters.push(eq(training_posts.platform, platform));
+        if (link_type)
+          priorityFilters.push(eq(training_posts.content_type, link_type));
+
+        if (priorityFilters.length > 0) {
+          const priorityQuery = db
+            .select()
+            .from(training_posts)
+            .where(and(...priorityFilters))
+            .limit(limit);
+          results = await priorityQuery;
+        }
+
+        // If still no results, get any posts that match at least one key criterion
+        if (results.length === 0) {
+          const anyMatchClauses = [];
+          if (platform)
+            anyMatchClauses.push(eq(training_posts.platform, platform));
+          if (link_type)
+            anyMatchClauses.push(eq(training_posts.content_type, link_type));
+          if (target_audience)
+            anyMatchClauses.push(
+              eq(training_posts.target_audience, target_audience)
             );
-            if (toneEntry) {
-              toneBoost = toneEntry.weight / 100; // Normalize weight for boost (e.g., max 1.0)
-            }
+
+          if (anyMatchClauses.length > 0) {
+            const anyMatchQuery = db
+              .select()
+              .from(training_posts)
+              .where(and(...anyMatchClauses))
+              .limit(limit);
+            results = await anyMatchQuery;
           }
+        }
 
-          // Combine similarities and boost for a final relevance score
-          // You'll need to fine-tune this scoring function
-          const totalRelevanceScore =
-            teaserStyleSimilarity * 0.7 + toneBoost * 0.3; // Example weighting
+        // If still no results, just get some recent posts as fallback
+        if (results.length === 0) {
+          const fallbackQuery = db
+            .select()
+            .from(training_posts)
+            .orderBy(sql`${training_posts.createdAt} DESC`)
+            .limit(limit);
+          results = await fallbackQuery;
+        }
+      }
 
-          return { ...post, totalRelevanceScore };
-        })
-        .sort((a, b) => b.totalRelevanceScore - a.totalRelevanceScore) // Sort descending
-        .slice(0, limit); // Take the top 'limit' posts
-
-      // IMPORTANT: Sanitize output before returning to LLM
-      // We only want to return the relevant textual content and explicit hooks
-      const sanitizedResults = rankedPosts.map((post) => ({
-        post_content: post.post_content,
-        // You can add other relevant metadata for the LLM if it helps it understand the example
-        // e.g., tone_profile, content_summary of the example post
-        content_summary: post.content_summary, // Summary of the *example's* linked content
-        // This gives the LLM context about what the example post was selling
-        platform: post.platform,
-        link_ownership_type: post.link_ownership_type,
-        // ... etc.
-      }));
-
-      if (sanitizedResults.length === 0) {
+      // If we still don't have results, return empty
+      if (results.length === 0) {
         return {
           results: [],
           message:
@@ -257,12 +250,49 @@ export const searchVectorDatabaseTool = tool({
         };
       }
 
+      // Score results based on tone profile match if desired_tone is specified
+      let scoredResults: (typeof training_posts.$inferSelect & {
+        toneScore?: number;
+      })[] = results;
+      if (desired_tone) {
+        scoredResults = results
+          .map((post) => {
+            let toneScore = 0;
+            if (post.tone_profile) {
+              const toneEntry = post.tone_profile.find(
+                (t: { tone: string; weight: number }) => t.tone === desired_tone
+              );
+              if (toneEntry) {
+                toneScore = toneEntry.weight / 100; // Normalize to 0-1
+              }
+            }
+
+            return { ...post, toneScore };
+          })
+          .sort((a, b) => (b.toneScore || 0) - (a.toneScore || 0));
+      }
+
+      // Sanitize output before returning to LLM
+      const sanitizedResults = scoredResults.map((post) => ({
+        post_content: post.post_content,
+        content_summary: post.content_summary,
+        platform: post.platform,
+        content_type: post.content_type,
+        link_ownership_type: post.link_ownership_type,
+        target_audience: post.target_audience,
+        call_to_action_type: post.call_to_action_type,
+        sales_pitch_strength: post.sales_pitch_strength,
+        tone_profile: post.tone_profile,
+      }));
+
       return {
         results: sanitizedResults,
-        message: 'Successfully retrieved relevant training posts.',
+        message: `Successfully retrieved ${
+          sanitizedResults.length
+        } relevant training post${sanitizedResults.length === 1 ? '' : 's'}.`,
       };
     } catch (error) {
-      console.error('Error searching vector database:', error);
+      console.error('Error searching training posts:', error);
       return {
         results: [],
         message: `An error occurred: ${getErrorMessage(error)}`,
@@ -270,24 +300,3 @@ export const searchVectorDatabaseTool = tool({
     }
   },
 });
-
-// Dummy function for cosine similarity - replace with your actual implementation
-function calculateCosineSimilarity(vec1: number[], vec2: number[]): number {
-  if (!vec1 || !vec2 || vec1.length !== vec2.length) {
-    return 0; // Or throw error
-  }
-  let dotProduct = 0;
-  let magnitude1 = 0;
-  let magnitude2 = 0;
-  for (let i = 0; i < vec1.length; i++) {
-    dotProduct += vec1[i] * vec2[i];
-    magnitude1 += vec1[i] * vec1[i];
-    magnitude2 += vec2[i] * vec2[i];
-  }
-  magnitude1 = Math.sqrt(magnitude1);
-  magnitude2 = Math.sqrt(magnitude2);
-  if (magnitude1 === 0 || magnitude2 === 0) {
-    return 0;
-  }
-  return dotProduct / (magnitude1 * magnitude2);
-}

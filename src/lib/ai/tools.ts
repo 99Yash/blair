@@ -89,16 +89,16 @@ export const searchTrainingPostsTool = tool({
       .number()
       .int()
       .min(1)
-      .max(10)
+      .max(100)
       .optional()
-      .describe('Minimum desired sales pitch strength (1-10).'),
+      .describe('Minimum desired sales pitch strength (1-100).'),
     max_sales_pitch_strength: z
       .number()
       .int()
       .min(1)
-      .max(10)
+      .max(100)
       .optional()
-      .describe('Maximum desired sales pitch strength (1-10).'),
+      .describe('Maximum desired sales pitch strength (1-100).'),
     desired_tone: z
       .enum(toneEnum.enumValues)
       .optional()

@@ -91,31 +91,8 @@ export async function POST(request: Request) {
           )
         );
 
-        // Check for existing posts
-        const existingPost = await db
-          .select()
-          .from(generate_posts)
-          .where(
-            and(
-              eq(generate_posts.original_url, submissionData.original_url),
-              eq(generate_posts.user_id, session.user.id)
-            )
-          )
-          .limit(1);
-
-        if (existingPost.length > 0) {
-          writer.write(
-            createProgressData(
-              PROGRESS_STAGES.SCRAPING,
-              'URL already exists for this user',
-              'error'
-            )
-          );
-          writer.write(
-            createNotificationData('You have already added this URL', 'error')
-          );
-          return;
-        }
+        // Note: We removed the existence check to avoid race conditions.
+        // Unique constraint violations will be handled below.
 
         // Step 1: Scrape and analyze content
         writer.write(
@@ -424,27 +401,50 @@ Generate an engaging social media post that promotes this link effectively. Make
           user_id: session.user.id,
         };
 
-        await db.insert(generate_posts).values(insertData);
+        try {
+          await db.insert(generate_posts).values(insertData);
 
-        writer.write(
-          createProgressData(
-            PROGRESS_STAGES.SAVING,
-            'Post saved successfully',
-            'success'
-          )
-        );
+          writer.write(
+            createProgressData(
+              PROGRESS_STAGES.SAVING,
+              'Post saved successfully',
+              'success'
+            )
+          );
 
-        // Send final result as a data message that useChat can handle
-        writer.write(
-          createGeneratedPostData(generatedContent, submissionData.platform)
-        );
+          // Send final result as a data message that useChat can handle
+          writer.write(
+            createGeneratedPostData(generatedContent, submissionData.platform)
+          );
 
-        writer.write(
-          createNotificationData(
-            'Post generation completed successfully!',
-            'success'
-          )
-        );
+          writer.write(
+            createNotificationData(
+              'Post generation completed successfully!',
+              'success'
+            )
+          );
+        } catch (error: any) {
+          // Handle unique constraint violation
+          if (
+            error?.code === '23505' ||
+            error?.message?.includes('unique constraint')
+          ) {
+            writer.write(
+              createProgressData(
+                PROGRESS_STAGES.SAVING,
+                'URL already exists for this user',
+                'error'
+              )
+            );
+            writer.write(
+              createNotificationData('You have already added this URL', 'error')
+            );
+            return;
+          }
+
+          // Re-throw other errors to be handled by the outer catch
+          throw error;
+        }
       } catch (err) {
         console.error('ERROR: Exception during post generation:', err);
         writer.write(

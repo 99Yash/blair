@@ -209,7 +209,7 @@ export default function CreatePage() {
       target_audience: undefined,
       tone_profile: [],
       call_to_action_type: undefined,
-      sales_pitch_strength: 5,
+      sales_pitch_strength: 50,
     },
   });
 

@@ -157,7 +157,7 @@ export const searchTrainingPostsTool = tool({
         max_sales_pitch_strength !== undefined
       ) {
         const minStrength = min_sales_pitch_strength || 1;
-        const maxStrength = max_sales_pitch_strength || 10;
+        const maxStrength = max_sales_pitch_strength || 100;
         exactMatchClauses.push(
           sql`${training_posts.sales_pitch_strength} >= ${minStrength} AND ${training_posts.sales_pitch_strength} <= ${maxStrength}`
         );

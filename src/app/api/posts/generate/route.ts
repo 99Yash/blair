@@ -1,9 +1,13 @@
-import { generateObject } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import {
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  streamText,
+} from 'ai';
 import { headers } from 'next/headers';
 
 import { and, eq, sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
-import * as z from 'zod/v4';
 import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
 import { auth } from '~/lib/auth/server';
@@ -12,6 +16,15 @@ import {
   postFormSchema,
   scrapedContentAnalysisSchema,
 } from '~/lib/schemas/post';
+import {
+  createContentAnalysisData,
+  createGeneratedPostData,
+  createNotificationData,
+  createProgressData,
+  createTrainingPostsData,
+  PROGRESS_STAGES,
+  StreamingPostMessage,
+} from '~/lib/types/streaming';
 import { getErrorMessage } from '~/lib/utils';
 
 // Create a modified schema for the generate endpoint that doesn't require generated fields
@@ -21,63 +34,38 @@ const generatePostSchema = postFormSchema.omit({
 });
 
 export async function POST(request: Request) {
-  console.log('=== POST /api/posts/generate ===');
+  console.log('=== POST /api/posts/generate (Streaming) ===');
 
   const session = await auth.api.getSession({
     headers: await headers(),
   });
 
-  console.log('Session:', {
-    hasSession: !!session?.user,
-    userId: session?.user?.id,
-    userName: session?.user?.name,
-    userEmail: session?.user?.email,
-  });
-
   if (!session?.user) {
-    console.log('ERROR: No valid session');
     return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
   }
 
   let body;
   try {
     body = await request.json();
-    console.log('Request body received:', JSON.stringify(body, null, 2));
-  } catch (error) {
-    console.log('ERROR: Failed to parse request body:', error);
+  } catch {
     return NextResponse.json(
       { message: 'Invalid JSON in request body' },
       { status: 400 }
     );
   }
 
-  console.log('Validating against generatePostSchema...');
   const parseResult = generatePostSchema.safeParse(body);
-
-  console.log('Validation result:', {
-    success: parseResult.success,
-    hasError: !parseResult.success,
-  });
-
   if (!parseResult.success) {
-    console.log(
-      'VALIDATION ERRORS:',
-      JSON.stringify(parseResult.error.issues, null, 2)
-    );
-    console.log('Error message:', getErrorMessage(parseResult.error));
     return NextResponse.json(
       {
         message: 'Validation error',
         errors: getErrorMessage(parseResult.error),
-        debug: parseResult.error.issues,
       },
       { status: 400 }
     );
   }
 
-  console.log('Validation successful!');
   const validatedBody = parseResult.data;
-  console.log('Validated body:', JSON.stringify(validatedBody, null, 2));
 
   // Ensure tone_profile is always provided for the API expectations
   const submissionData = {
@@ -85,202 +73,255 @@ export async function POST(request: Request) {
     tone_profile:
       validatedBody.tone_profile && validatedBody.tone_profile.length > 0
         ? validatedBody.tone_profile
-        : [{ tone: 'casual' as const, weight: 50 }], // Default tone if none specified
+        : [{ tone: 'casual' as const, weight: 50 }],
   };
 
-  try {
-    // Check if user already has a post with this URL
-    console.log('Checking for existing posts...');
-    console.log('URL to check:', submissionData.original_url);
-    console.log('User ID:', session.user.id);
-
-    const existingPost = await db
-      .select()
-      .from(generate_posts)
-      .where(
-        and(
-          eq(generate_posts.original_url, submissionData.original_url),
-          eq(generate_posts.user_id, session.user.id)
-        )
-      )
-      .limit(1);
-
-    console.log('Existing posts found:', existingPost.length);
-
-    if (existingPost.length > 0) {
-      console.log('ERROR: URL already exists for this user');
-      return NextResponse.json(
-        { message: 'You have already added this URL' },
-        { status: 409 }
-      );
-    }
-
-    console.log('No existing posts found, proceeding with generation...');
-
-    // --- Step 1: Scrape and analyze the website content ---
-    console.log('Scraping website content...');
-    const scrapedContent = await firecrawl.scrape(submissionData.original_url, {
-      formats: ['markdown', 'html'],
-      onlyMainContent: true,
-      waitFor: 1000,
-    });
-
-    const content = scrapedContent.markdown ?? scrapedContent.html ?? '';
-    const slicedContent = content.slice(0, 100000);
-
-    const { openai } = await import('@ai-sdk/openai');
-    const { object: analysis } = await generateObject({
-      model: openai('gpt-4o-mini'),
-      schema: scrapedContentAnalysisSchema,
-      prompt: `Analyze the following scraped content: ${slicedContent} and return the analysis in the schema provided.`,
-    });
-
-    if (!analysis || !analysis.content_summary) {
-      console.log('ERROR: Failed to analyze website content');
-      return NextResponse.json(
-        { message: 'Failed to analyze website content' },
-        { status: 500 }
-      );
-    }
-
-    const contentSummary = analysis.content_summary;
-    const inferredContentType = analysis.content_type;
-    const inferredTargetAudience = analysis.target_audience;
-
-    console.log('Scraping completed:', {
-      contentSummaryLength: contentSummary?.length || 0,
-      inferredContentType,
-      inferredTargetAudience,
-    });
-
-    // --- Step 2: Search for relevant training posts ---
-    console.log('Searching for relevant training posts...');
-
-    // Import training posts schema
-    const { training_posts } = await import('~/db/schemas/training-post');
-
-    // Build dynamic where clauses for exact matches first
-    const exactMatchClauses = [];
-
-    if (submissionData.platform) {
-      exactMatchClauses.push(
-        eq(training_posts.platform, submissionData.platform)
-      );
-    }
-    if (submissionData.content_type || inferredContentType) {
-      exactMatchClauses.push(
-        eq(
-          training_posts.content_type,
-          submissionData.content_type || inferredContentType
-        )
-      );
-    }
-    if (submissionData.link_ownership_type) {
-      exactMatchClauses.push(
-        eq(
-          training_posts.link_ownership_type,
-          submissionData.link_ownership_type
-        )
-      );
-    }
-    if (submissionData.target_audience || inferredTargetAudience) {
-      exactMatchClauses.push(
-        eq(
-          training_posts.target_audience,
-          submissionData.target_audience || inferredTargetAudience
-        )
-      );
-    }
-    if (submissionData.call_to_action_type) {
-      exactMatchClauses.push(
-        eq(
-          training_posts.call_to_action_type,
-          submissionData.call_to_action_type
-        )
-      );
-    }
-
-    // Sales pitch strength filter
-    if (submissionData.sales_pitch_strength) {
-      const minStrength = Math.max(1, submissionData.sales_pitch_strength - 2);
-      const maxStrength = Math.min(10, submissionData.sales_pitch_strength + 2);
-      exactMatchClauses.push(
-        sql`${training_posts.sales_pitch_strength} >= ${minStrength} AND ${training_posts.sales_pitch_strength} <= ${maxStrength}`
-      );
-    }
-
-    // First, try to find exact matches
-    let results: (typeof training_posts.$inferSelect)[] = [];
-    if (exactMatchClauses.length > 0) {
-      const exactMatchQuery = db
-        .select()
-        .from(training_posts)
-        .where(and(...exactMatchClauses))
-        .limit(5);
-
-      results = await exactMatchQuery;
-    }
-
-    // If no exact matches found, try broader search
-    if (results.length === 0 && exactMatchClauses.length > 0) {
-      // Try with fewer filters - prioritize the most important ones
-      const priorityFilters = [];
-      if (submissionData.platform)
-        priorityFilters.push(
-          eq(training_posts.platform, submissionData.platform)
-        );
-      if (submissionData.content_type || inferredContentType)
-        priorityFilters.push(
-          eq(
-            training_posts.content_type,
-            submissionData.content_type || inferredContentType
+  // Create a custom stream that integrates better with useChat
+  // We'll send progress updates and final result
+  const stream = createUIMessageStream<StreamingPostMessage>({
+    execute: async ({ writer }) => {
+      try {
+        // Send initial progress
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.SCRAPING,
+            'Starting post generation...',
+            'loading'
           )
         );
 
-      if (priorityFilters.length > 0) {
-        const priorityQuery = db
+        // Check for existing posts
+        const existingPost = await db
           .select()
-          .from(training_posts)
-          .where(and(...priorityFilters))
-          .limit(5);
-        results = await priorityQuery;
-      }
+          .from(generate_posts)
+          .where(
+            and(
+              eq(generate_posts.original_url, submissionData.original_url),
+              eq(generate_posts.user_id, session.user.id)
+            )
+          )
+          .limit(1);
 
-      // If still no results, just get some recent posts as fallback
-      if (results.length === 0) {
-        const fallbackQuery = db
-          .select()
-          .from(training_posts)
-          .orderBy(sql`${training_posts.createdAt} DESC`)
-          .limit(5);
-        results = await fallbackQuery;
-      }
-    }
+        if (existingPost.length > 0) {
+          writer.write(
+            createProgressData(
+              PROGRESS_STAGES.SCRAPING,
+              'URL already exists for this user',
+              'error'
+            )
+          );
+          writer.write(
+            createNotificationData('You have already added this URL', 'error')
+          );
+          return;
+        }
 
-    console.log('Search completed:', {
-      resultsFound: results.length || 0,
-    });
+        // Step 1: Scrape and analyze content
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.SCRAPING,
+            'Scraping website content...',
+            'loading',
+            submissionData.original_url
+          )
+        );
 
-    // --- Step 3: Generate the post content ---
-    console.log('Generating post content...');
+        const scrapedContent = await firecrawl.scrape(
+          submissionData.original_url,
+          {
+            formats: ['markdown', 'html'],
+            onlyMainContent: true,
+            waitFor: 1000,
+          }
+        );
 
-    const { object: generatedContent } = await generateObject({
-      model: openai('gpt-4o'),
-      schema: z.object({
-        generated_post_content: z
-          .string()
-          .describe('The full generated social media post content.'),
-      }),
-      prompt: `Generate a social media post for the following link.
+        const content = scrapedContent.markdown ?? scrapedContent.html ?? '';
+        const slicedContent = content.slice(0, 100000);
+
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.ANALYZING,
+            'Analyzing scraped content...',
+            'loading'
+          )
+        );
+
+        const { generateObject } = await import('ai');
+        const { object: analysis } = await generateObject({
+          model: openai('gpt-4o-mini'),
+          schema: scrapedContentAnalysisSchema,
+          prompt: `Analyze the following scraped content and provide the analysis in the exact format specified by the schema. Return only the object data that matches the schema properties:
+
+${slicedContent}
+
+Return an object with these exact fields:
+- content_summary: string (summary of the content)
+- content_type: one of the enum values
+- target_audience: one of the enum values
+- tone_profile: array of tone objects with tone and weight
+- call_to_action_type: one of the enum values
+- sales_pitch_strength: number 0-100`,
+        });
+
+        if (!analysis || !analysis.content_summary) {
+          writer.write(
+            createProgressData(
+              PROGRESS_STAGES.ANALYZING,
+              'Failed to analyze website content',
+              'error'
+            )
+          );
+          writer.write(
+            createNotificationData('Failed to analyze website content', 'error')
+          );
+          return;
+        }
+
+        // Send content analysis results
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.ANALYZING,
+            'Content analysis completed',
+            'success'
+          )
+        );
+        writer.write(
+          createContentAnalysisData({
+            content_summary: analysis.content_summary,
+            content_type: analysis.content_type,
+            target_audience: analysis.target_audience,
+            tone_profile: analysis.tone_profile,
+            call_to_action_type: analysis.call_to_action_type,
+            sales_pitch_strength: analysis.sales_pitch_strength,
+          })
+        );
+
+        // Step 2: Search for training posts
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.SEARCHING,
+            'Searching for similar posts...',
+            'loading'
+          )
+        );
+
+        const { training_posts } = await import('~/db/schemas/training-post');
+
+        const exactMatchClauses = [];
+        if (submissionData.platform) {
+          exactMatchClauses.push(
+            eq(training_posts.platform, submissionData.platform)
+          );
+        }
+        if (submissionData.content_type || analysis.content_type) {
+          exactMatchClauses.push(
+            eq(
+              training_posts.content_type,
+              submissionData.content_type || analysis.content_type
+            )
+          );
+        }
+        if (submissionData.target_audience || analysis.target_audience) {
+          exactMatchClauses.push(
+            eq(
+              training_posts.target_audience,
+              submissionData.target_audience || analysis.target_audience
+            )
+          );
+        }
+        if (submissionData.call_to_action_type) {
+          exactMatchClauses.push(
+            eq(
+              training_posts.call_to_action_type,
+              submissionData.call_to_action_type
+            )
+          );
+        }
+
+        let results: (typeof training_posts.$inferSelect)[] = [];
+        if (exactMatchClauses.length > 0) {
+          const query = db
+            .select()
+            .from(training_posts)
+            .where(and(...exactMatchClauses))
+            .limit(5);
+          results = await query;
+        }
+
+        if (results.length === 0 && exactMatchClauses.length > 0) {
+          const priorityFilters = [];
+          if (submissionData.platform)
+            priorityFilters.push(
+              eq(training_posts.platform, submissionData.platform)
+            );
+          if (submissionData.content_type || analysis.content_type) {
+            priorityFilters.push(
+              eq(
+                training_posts.content_type,
+                submissionData.content_type || analysis.content_type
+              )
+            );
+          }
+
+          if (priorityFilters.length > 0) {
+            const query = db
+              .select()
+              .from(training_posts)
+              .where(and(...priorityFilters))
+              .limit(5);
+            results = await query;
+          }
+
+          if (results.length === 0) {
+            const fallbackQuery = db
+              .select()
+              .from(training_posts)
+              .orderBy(sql`${training_posts.createdAt} DESC`)
+              .limit(5);
+            results = await fallbackQuery;
+          }
+        }
+
+        const examplePosts = results.slice(0, 3).map((post) => ({
+          content: post.post_content,
+          platform: post.platform,
+          content_type: post.content_type,
+        }));
+
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.SEARCHING,
+            `Found ${results.length} similar posts`,
+            'success'
+          )
+        );
+        writer.write(createTrainingPostsData(results.length, examplePosts));
+
+        // Step 3: Generate post content
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.GENERATING,
+            'Generating post content...',
+            'loading'
+          )
+        );
+
+        // Use streamText for the actual content generation
+        const generationResult = streamText({
+          model: openai('gpt-4o'),
+          messages: [
+            {
+              role: 'user',
+              content: `Generate a social media post for the following link.
 
 URL: ${submissionData.original_url}
 Platform: ${submissionData.platform}
 Link Ownership: ${submissionData.link_ownership_type}
 
 Content Analysis:
-- Summary: ${contentSummary}
-- Content Type: ${inferredContentType}
-- Target Audience: ${inferredTargetAudience}
+- Summary: ${analysis.content_summary}
+- Content Type: ${analysis.content_type}
+- Target Audience: ${analysis.target_audience}
 
 User Preferences:
 - Tone Profile: ${JSON.stringify(submissionData.tone_profile)}
@@ -288,19 +329,16 @@ User Preferences:
 - Sales Pitch Strength: ${submissionData.sales_pitch_strength || 'medium'}/10
 
 ${
-  results && results.length > 0
+  examplePosts.length > 0
     ? `
 Example Posts:
-${results
+${examplePosts
   .map(
-    (post: typeof training_posts.$inferSelect, index: number) => `
+    (post, index) => `
 Example ${index + 1}:
-Content: ${post.post_content}
+Content: ${post.content}
 Platform: ${post.platform}
-Content Type: ${post.content_type}
-Target Audience: ${post.target_audience}
-Tone: ${post.tone_profile ? JSON.stringify(post.tone_profile) : 'Not specified'}
-`
+Content Type: ${post.content_type}`
   )
   .join('\n')}
 `
@@ -308,70 +346,120 @@ Tone: ${post.tone_profile ? JSON.stringify(post.tone_profile) : 'Not specified'}
 }
 
 Generate an engaging social media post that promotes this link effectively. Make sure the tone matches the user's preferences and follows best practices for the specified platform.`,
-    });
+            },
+          ],
+        });
 
-    const generatedPostText = generatedContent.generated_post_content;
+        // Collect the generated content
+        let generatedContent = '';
+        for await (const delta of generationResult.textStream) {
+          generatedContent += delta;
+          // Send incremental updates as content is generated
+          if (generatedContent.length % 50 === 0) {
+            // Update every 50 characters
+            writer.write(
+              createProgressData(
+                PROGRESS_STAGES.GENERATING,
+                `Generating post content... (${generatedContent.length} characters)`,
+                'loading'
+              )
+            );
+          }
+        }
 
-    if (!generatedPostText) {
-      console.log('ERROR: Failed to generate post content');
-      return NextResponse.json(
-        { message: 'Failed to generate post content' },
-        { status: 500 }
-      );
-    }
+        if (!generatedContent) {
+          writer.write(
+            createProgressData(
+              PROGRESS_STAGES.GENERATING,
+              'Failed to generate post content',
+              'error'
+            )
+          );
+          writer.write(
+            createNotificationData('Failed to generate post content', 'error')
+          );
+          return;
+        }
 
-    console.log('Generation completed:', {
-      generatedPostTextLength: generatedPostText.length,
-    });
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.GENERATING,
+            'Post content generated successfully',
+            'success'
+          )
+        );
 
-    // --- Store the generated post ---
-    console.log('Storing post in database...');
-    const insertData = {
-      original_url: submissionData.original_url,
-      post_content: generatedPostText,
-      platform: submissionData.platform,
-      content_type: inferredContentType as
-        | 'self_help'
-        | 'tech_tutorial'
-        | 'news_article'
-        | 'product_review'
-        | 'thought_leadership'
-        | 'entertainment'
-        | 'other',
-      content_summary: contentSummary || '',
-      link_ownership_type: submissionData.link_ownership_type,
-      target_audience: inferredTargetAudience as
-        | 'developers'
-        | 'marketers'
-        | 'entrepreneurs'
-        | 'students'
-        | 'parents'
-        | 'general_public'
-        | 'creatives'
-        | 'finance_professionals'
-        | 'other',
-      user_id: session.user.id,
-    };
+        // Step 4: Save to database
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.SAVING,
+            'Saving post to database...',
+            'loading'
+          )
+        );
 
-    console.log('Insert data:', JSON.stringify(insertData, null, 2));
+        const insertData = {
+          original_url: submissionData.original_url,
+          post_content: generatedContent,
+          platform: submissionData.platform,
+          content_type: analysis.content_type as
+            | 'self_help'
+            | 'tech_tutorial'
+            | 'news_article'
+            | 'product_review'
+            | 'thought_leadership'
+            | 'entertainment'
+            | 'other',
+          content_summary: analysis.content_summary || '',
+          target_audience: analysis.target_audience as
+            | 'developers'
+            | 'marketers'
+            | 'entrepreneurs'
+            | 'students'
+            | 'parents'
+            | 'general_public'
+            | 'creatives'
+            | 'finance_professionals'
+            | 'other',
+          user_id: session.user.id,
+        };
 
-    const insertResult = await db.insert(generate_posts).values(insertData);
-    console.log('Database insert result:', insertResult);
+        await db.insert(generate_posts).values(insertData);
 
-    console.log('SUCCESS: Post created successfully!');
-    return NextResponse.json(
-      { message: 'Post created successfully', generatedPostText },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error('ERROR: Exception during post generation:', error);
-    console.error(
-      'Error stack:',
-      error instanceof Error ? error.stack : 'No stack trace'
-    );
-    return NextResponse.json(
-      { message: 'Internal Server Error', error: getErrorMessage(error) },
-      { status: 500 }
-    );
-  }
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.SAVING,
+            'Post saved successfully',
+            'success'
+          )
+        );
+
+        // Send final result as a data message that useChat can handle
+        writer.write(
+          createGeneratedPostData(generatedContent, submissionData.platform)
+        );
+
+        writer.write(
+          createNotificationData(
+            'Post generation completed successfully!',
+            'success'
+          )
+        );
+      } catch (err) {
+        console.error('ERROR: Exception during post generation:', err);
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.SAVING,
+            'An error occurred during generation',
+            'error'
+          )
+        );
+        writer.write(
+          createNotificationData('Internal server error occurred', 'error')
+        );
+      }
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
 }

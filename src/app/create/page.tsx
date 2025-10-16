@@ -5,7 +5,16 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod/v4';
 
-import { Loader2, Plus, X } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Info,
+  Loader2,
+  Plus,
+  X,
+} from 'lucide-react';
+import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
   Card,
@@ -32,6 +41,7 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import { Slider } from '~/components/ui/slider';
+import { PROGRESS_STAGES } from '~/lib/types/streaming';
 
 // Form schema that matches the API expectations but makes AI-inferable fields optional
 const createPostFormSchema = z.object({
@@ -124,10 +134,52 @@ const ctaOptions = [
   { value: 'other', label: 'Other' },
 ];
 
+// Progress state management
+type ProgressState = {
+  stage: string;
+  message: string;
+  status: 'loading' | 'success' | 'error';
+  details?: string;
+};
+
+type NotificationState = {
+  message: string;
+  level: 'info' | 'warning' | 'error' | 'success';
+};
+
+type ContentAnalysisState = {
+  content_summary: string;
+  content_type: string;
+  target_audience: string;
+  tone_profile?: Array<{ tone: string; weight: number }>;
+  call_to_action_type?: string;
+  sales_pitch_strength?: number;
+};
+
+type TrainingPostsState = {
+  count: number;
+  examples?: Array<{
+    content: string;
+    platform: string;
+    content_type: string;
+  }>;
+};
+
 export default function CreatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedPost, setGeneratedPost] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Streaming state - now using useChat for cleaner streaming
+  const [currentProgress, setCurrentProgress] = useState<ProgressState | null>(
+    null
+  );
+  const [notifications, setNotifications] = useState<NotificationState[]>([]);
+  const [contentAnalysis, setContentAnalysis] =
+    useState<ContentAnalysisState | null>(null);
+  const [trainingPosts, setTrainingPosts] = useState<TrainingPostsState | null>(
+    null
+  );
 
   const form = useForm<CreatePostFormData>({
     resolver: zodResolver(createPostFormSchema),
@@ -175,6 +227,12 @@ export default function CreatePage() {
     setError(null);
     setGeneratedPost(null);
 
+    // Clear previous streaming state
+    setCurrentProgress(null);
+    setNotifications([]);
+    setContentAnalysis(null);
+    setTrainingPosts(null);
+
     try {
       // Ensure we have at least one tone profile since the API expects it
       const submissionData = {
@@ -193,16 +251,80 @@ export default function CreatePage() {
         body: JSON.stringify(submissionData),
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
+        const result = await response.json();
         setError(result.message || 'Failed to generate post');
         return;
       }
 
-      setGeneratedPost(result.generatedPostText);
-    } catch {
+      // Handle streaming response
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response body reader available');
+      }
+
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+
+        // Keep the last line in buffer as it might be incomplete
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              // Handle different data part types
+              if (data.type === 'data-progress') {
+                setCurrentProgress({
+                  stage: data.data.stage,
+                  message: data.data.message,
+                  status: data.data.status,
+                  details: data.data.details,
+                });
+              } else if (data.type === 'data-notification') {
+                setNotifications((prev) => [
+                  ...prev,
+                  {
+                    message: data.data.message,
+                    level: data.data.level,
+                  },
+                ]);
+              } else if (data.type === 'data-content_analysis') {
+                setContentAnalysis(data.data);
+              } else if (data.type === 'data-training_posts') {
+                setTrainingPosts(data.data);
+              } else if (data.type === 'data-generated_post') {
+                setGeneratedPost(data.data.content);
+                setCurrentProgress({
+                  stage: PROGRESS_STAGES.SAVING,
+                  message: 'Post generation completed!',
+                  status: 'success',
+                });
+              }
+            } catch (parseError) {
+              console.error('Error parsing streaming data:', parseError);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Form submission error:', error);
       setError('Failed to generate post. Please try again.');
+      setCurrentProgress({
+        stage: PROGRESS_STAGES.SAVING,
+        message: 'An error occurred during generation',
+        status: 'error',
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -538,6 +660,149 @@ export default function CreatePage() {
         </Card>
 
         <div className="space-y-6">
+          {/* Progress and Notifications */}
+          {(isSubmitting ||
+            currentProgress ||
+            notifications.length > 0 ||
+            contentAnalysis ||
+            trainingPosts) && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="w-5 h-5" />
+                  Generation Progress
+                </CardTitle>
+                <CardDescription>
+                  Real-time updates on your post generation
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Current Progress */}
+                {currentProgress && (
+                  <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
+                    {currentProgress.status === 'loading' && (
+                      <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                    )}
+                    {currentProgress.status === 'success' && (
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                    )}
+                    {currentProgress.status === 'error' && (
+                      <AlertCircle className="w-5 h-5 text-red-500" />
+                    )}
+                    <div className="flex-1">
+                      <div className="font-medium">
+                        {currentProgress.message}
+                      </div>
+                      {currentProgress.details && (
+                        <div className="text-sm text-muted-foreground">
+                          {currentProgress.details}
+                        </div>
+                      )}
+                    </div>
+                    <Badge
+                      variant={
+                        currentProgress.status === 'loading'
+                          ? 'secondary'
+                          : currentProgress.status === 'success'
+                          ? 'default'
+                          : 'destructive'
+                      }
+                    >
+                      {currentProgress.stage}
+                    </Badge>
+                  </div>
+                )}
+
+                {/* Notifications */}
+                {notifications.length > 0 && (
+                  <div className="space-y-2">
+                    {notifications.map((notification, index) => (
+                      <div
+                        key={index}
+                        className={`flex items-center gap-2 p-2 rounded-md text-sm ${
+                          notification.level === 'error'
+                            ? 'bg-red-50 text-red-700 border border-red-200'
+                            : notification.level === 'warning'
+                            ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                            : notification.level === 'success'
+                            ? 'bg-green-50 text-green-700 border border-green-200'
+                            : 'bg-blue-50 text-blue-700 border border-blue-200'
+                        }`}
+                      >
+                        <Info className="w-4 h-4" />
+                        {notification.message}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Content Analysis Results */}
+                {contentAnalysis && (
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="font-medium text-blue-900 mb-2">
+                      Content Analysis
+                    </h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-blue-700">Type:</span>
+                        <Badge variant="outline" className="ml-2">
+                          {contentAnalysis.content_type}
+                        </Badge>
+                      </div>
+                      <div>
+                        <span className="text-blue-700">Audience:</span>
+                        <Badge variant="outline" className="ml-2">
+                          {contentAnalysis.target_audience}
+                        </Badge>
+                      </div>
+                      {contentAnalysis.call_to_action_type && (
+                        <div className="col-span-2">
+                          <span className="text-blue-700">Call to Action:</span>
+                          <Badge variant="outline" className="ml-2">
+                            {contentAnalysis.call_to_action_type}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                    {contentAnalysis.content_summary && (
+                      <p className="mt-2 text-sm text-blue-800">
+                        <strong>Summary:</strong>{' '}
+                        {contentAnalysis.content_summary}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Training Posts Results */}
+                {trainingPosts && (
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <h4 className="font-medium text-purple-900 mb-2">
+                      Found {trainingPosts.count} Similar Posts
+                    </h4>
+                    {trainingPosts.examples &&
+                      trainingPosts.examples.length > 0 && (
+                        <div className="space-y-2">
+                          {trainingPosts.examples.map((example, index) => (
+                            <div
+                              key={index}
+                              className="p-2 bg-white rounded border"
+                            >
+                              <div className="text-sm font-medium">
+                                {example.platform}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {example.content.substring(0, 100)}...
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
           {error && (
             <Card>
               <CardHeader>

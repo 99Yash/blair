@@ -60,7 +60,7 @@ export function Testimonials() {
                 ))}
               </div>
               <p className="text-muted-foreground mb-6">
-                "{testimonial.content}"
+                &ldquo;{testimonial.content}&rdquo;
               </p>
               <div className="flex items-center gap-3">
                 <Avatar>

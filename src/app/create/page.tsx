@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import { Slider } from '~/components/ui/slider';
+import { Switch } from '~/components/ui/switch';
 import { PROGRESS_STAGES } from '~/lib/types/streaming';
 
 // Form schema that matches the API expectations but makes AI-inferable fields optional
@@ -222,6 +223,17 @@ export default function CreatePage() {
     form.setValue('tone_profile', updatedTones);
   };
 
+  const resetForm = () => {
+    form.reset();
+    setGeneratedPost(null);
+    setError(null);
+    setCurrentProgress(null);
+    setNotifications([]);
+    setContentAnalysis(null);
+    setTrainingPosts(null);
+    setIsSubmitting(false);
+  };
+
   const onSubmit = async (data: CreatePostFormData) => {
     setIsSubmitting(true);
     setError(null);
@@ -331,41 +343,44 @@ export default function CreatePage() {
   };
 
   return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Create Social Media Post</h1>
-        <p className="text-muted-foreground">
+    <div className="container max-w-4xl mx-auto py-6 px-4">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-1">Create Social Media Post</h1>
+        <p className="text-muted-foreground text-sm">
           Generate engaging social media content from any URL using AI
         </p>
       </div>
 
-      <div className="grid gap-8 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Post Details</CardTitle>
-            <CardDescription>
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Post Details</CardTitle>
+            <CardDescription className="text-sm">
               Provide the basic information for your social media post
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-2">
             <Form {...form}>
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-6"
+                className="space-y-4"
               >
                 <FormField
                   control={form.control}
                   name="original_url"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>URL *</FormLabel>
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium">
+                        URL *
+                      </FormLabel>
                       <FormControl>
                         <Input
                           placeholder="https://example.com/article"
+                          className="h-9"
                           {...field}
                         />
                       </FormControl>
-                      <FormDescription>
+                      <FormDescription className="text-xs">
                         The URL you want to create a social media post about
                       </FormDescription>
                       <FormMessage />
@@ -377,14 +392,16 @@ export default function CreatePage() {
                   control={form.control}
                   name="platform"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Platform *</FormLabel>
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-sm font-medium">
+                        Platform *
+                      </FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                          <SelectTrigger className="h-9">
                             <SelectValue placeholder="Select platform" />
                           </SelectTrigger>
                         </FormControl>
@@ -404,297 +421,374 @@ export default function CreatePage() {
                   control={form.control}
                   name="link_ownership_type"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Content Ownership *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select ownership type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="own_content">
-                            My Own Content
-                          </SelectItem>
-                          <SelectItem value="third_party_content">
-                            Third Party Content
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="content_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Content Type (Optional)</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select content type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="self_help">Self Help</SelectItem>
-                          <SelectItem value="tech_tutorial">
-                            Tech Tutorial
-                          </SelectItem>
-                          <SelectItem value="news_article">
-                            News Article
-                          </SelectItem>
-                          <SelectItem value="product_review">
-                            Product Review
-                          </SelectItem>
-                          <SelectItem value="thought_leadership">
-                            Thought Leadership
-                          </SelectItem>
-                          <SelectItem value="entertainment">
-                            Entertainment
-                          </SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Leave blank for AI to infer from content
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="target_audience"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Target Audience (Optional)</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select target audience" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="developers">Developers</SelectItem>
-                          <SelectItem value="marketers">Marketers</SelectItem>
-                          <SelectItem value="entrepreneurs">
-                            Entrepreneurs
-                          </SelectItem>
-                          <SelectItem value="students">Students</SelectItem>
-                          <SelectItem value="parents">Parents</SelectItem>
-                          <SelectItem value="general_public">
-                            General Public
-                          </SelectItem>
-                          <SelectItem value="creatives">Creatives</SelectItem>
-                          <SelectItem value="finance_professionals">
-                            Finance Professionals
-                          </SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Leave blank for AI to infer from content
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <FormLabel>Tone Profile (Optional)</FormLabel>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={addToneProfile}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Add Tone
-                    </Button>
-                  </div>
-
-                  {form.watch('tone_profile')?.map((toneProfile, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-4 p-4 border rounded-lg"
-                    >
-                      <Select
-                        value={toneProfile.tone}
-                        onValueChange={(value) =>
-                          updateToneProfile(index, 'tone', value)
-                        }
-                      >
-                        <SelectTrigger className="w-40">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {toneOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-
-                      <div className="flex-1">
-                        <FormLabel className="text-sm">
-                          Weight: {toneProfile.weight}%
+                    <FormItem className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <FormLabel className="text-sm font-medium">
+                          Content Ownership *
                         </FormLabel>
-                        <Slider
-                          value={[toneProfile.weight]}
-                          onValueChange={([value]) =>
-                            updateToneProfile(index, 'weight', value)
-                          }
-                          max={100}
-                          step={5}
-                          className="mt-1"
-                        />
+                        <div className="flex items-center space-x-2">
+                          <span
+                            className={`text-sm ${
+                              !field.value ||
+                              field.value === 'third_party_content'
+                                ? 'text-muted-foreground'
+                                : 'text-foreground'
+                            }`}
+                          >
+                            Third Party
+                          </span>
+                          <Switch
+                            checked={field.value === 'own_content'}
+                            onCheckedChange={(checked) => {
+                              field.onChange(
+                                checked ? 'own_content' : 'third_party_content'
+                              );
+                            }}
+                          />
+                          <span
+                            className={`text-sm ${
+                              field.value === 'own_content'
+                                ? 'text-foreground'
+                                : 'text-muted-foreground'
+                            }`}
+                          >
+                            My Own
+                          </span>
+                        </div>
                       </div>
+                      <FormDescription className="text-xs">
+                        Toggle to indicate whether this is your own content or
+                        third-party content
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
+                <div className="space-y-3 pb-4 border-b border-border/50">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Optional Settings
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="content_type"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel className="text-sm font-medium">
+                            Content Type (Optional)
+                          </FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Select content type" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="self_help">
+                                Self Help
+                              </SelectItem>
+                              <SelectItem value="tech_tutorial">
+                                Tech Tutorial
+                              </SelectItem>
+                              <SelectItem value="news_article">
+                                News Article
+                              </SelectItem>
+                              <SelectItem value="product_review">
+                                Product Review
+                              </SelectItem>
+                              <SelectItem value="thought_leadership">
+                                Thought Leadership
+                              </SelectItem>
+                              <SelectItem value="entertainment">
+                                Entertainment
+                              </SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription className="text-xs">
+                            Leave blank for AI to infer from content
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="target_audience"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel className="text-sm font-medium">
+                            Target Audience (Optional)
+                          </FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Select target audience" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="developers">
+                                Developers
+                              </SelectItem>
+                              <SelectItem value="marketers">
+                                Marketers
+                              </SelectItem>
+                              <SelectItem value="entrepreneurs">
+                                Entrepreneurs
+                              </SelectItem>
+                              <SelectItem value="students">Students</SelectItem>
+                              <SelectItem value="parents">Parents</SelectItem>
+                              <SelectItem value="general_public">
+                                General Public
+                              </SelectItem>
+                              <SelectItem value="creatives">
+                                Creatives
+                              </SelectItem>
+                              <SelectItem value="finance_professionals">
+                                Finance Professionals
+                              </SelectItem>
+                              <SelectItem value="other">Other</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormDescription className="text-xs">
+                            Leave blank for AI to infer from content
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-3 pb-4 border-b border-border/50">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                    Advanced Settings
+                  </h3>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <FormLabel className="text-sm font-medium">
+                        Tone Profile (Optional)
+                      </FormLabel>
                       <Button
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => removeToneProfile(index)}
+                        onClick={addToneProfile}
+                        className="h-8 px-3"
                       >
-                        <X className="w-4 h-4" />
+                        <Plus className="w-3 h-3 mr-1" />
+                        Add Tone
                       </Button>
                     </div>
-                  ))}
 
-                  <FormDescription>
-                    Leave blank for AI to infer from content
-                  </FormDescription>
+                    {form.watch('tone_profile')?.map((toneProfile, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 p-3 border rounded-md bg-muted/30"
+                      >
+                        <Select
+                          value={toneProfile.tone}
+                          onValueChange={(value) =>
+                            updateToneProfile(index, 'tone', value)
+                          }
+                        >
+                          <SelectTrigger className="w-32 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {toneOptions.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-xs text-muted-foreground">
+                              Weight:
+                            </span>
+                            <span className="text-sm font-medium">
+                              {toneProfile.weight}%
+                            </span>
+                          </div>
+                          <Slider
+                            value={[toneProfile.weight]}
+                            onValueChange={([value]) =>
+                              updateToneProfile(index, 'weight', value)
+                            }
+                            max={100}
+                            step={5}
+                            className="h-6"
+                          />
+                        </div>
+
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeToneProfile(index)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+
+                    <FormDescription className="text-xs">
+                      Leave blank for AI to infer from content
+                    </FormDescription>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="call_to_action_type"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel className="text-sm font-medium">
+                            Call to Action (Optional)
+                          </FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger className="h-9">
+                                <SelectValue placeholder="Select call to action" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {ctaOptions.map((option) => (
+                                <SelectItem
+                                  key={option.value}
+                                  value={option.value}
+                                >
+                                  {option.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription className="text-xs">
+                            Leave blank for AI to infer from content
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="sales_pitch_strength"
+                      render={({ field }) => (
+                        <FormItem className="space-y-2">
+                          <FormLabel className="text-sm font-medium">
+                            Sales Pitch Strength (Optional)
+                          </FormLabel>
+                          <FormControl>
+                            <div className="space-y-3">
+                              <Slider
+                                value={[field.value || 5]}
+                                onValueChange={([value]) =>
+                                  field.onChange(value)
+                                }
+                                max={10}
+                                min={1}
+                                step={1}
+                                className="h-6"
+                              />
+                              <div className="flex justify-between text-xs text-muted-foreground">
+                                <span>Subtle (1)</span>
+                                <span className="font-medium">
+                                  {field.value || 5}/10
+                                </span>
+                                <span>Aggressive (10)</span>
+                              </div>
+                            </div>
+                          </FormControl>
+                          <FormDescription className="text-xs">
+                            Leave as default for AI to infer from content
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="call_to_action_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Call to Action (Optional)</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select call to action" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          {ctaOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        Leave blank for AI to infer from content
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="sales_pitch_strength"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Sales Pitch Strength (Optional)</FormLabel>
-                      <FormControl>
-                        <div className="space-y-2">
-                          <Slider
-                            value={[field.value || 5]}
-                            onValueChange={([value]) => field.onChange(value)}
-                            max={10}
-                            min={1}
-                            step={1}
-                          />
-                          <div className="flex justify-between text-sm text-muted-foreground">
-                            <span>Subtle (1)</span>
-                            <span className="font-medium">
-                              {field.value || 5}/10
-                            </span>
-                            <span>Aggressive (10)</span>
-                          </div>
-                        </div>
-                      </FormControl>
-                      <FormDescription>
-                        Leave as default for AI to infer from content
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <Button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="w-full"
-                >
-                  {isSubmitting && (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  Generate Post
-                </Button>
+                <div className="pt-4 border-t border-border/50">
+                  <Button
+                    type="submit"
+                    className="w-full h-10"
+                    disabled={isSubmitting}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating Post...
+                      </>
+                    ) : (
+                      'Generate Social Media Post'
+                    )}
+                  </Button>
+                </div>
               </form>
             </Form>
           </CardContent>
         </Card>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Progress and Notifications */}
           {(isSubmitting ||
             currentProgress ||
             notifications.length > 0 ||
             contentAnalysis ||
             trainingPosts) && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Clock className="w-5 h-5" />
-                  Generation Progress
-                </CardTitle>
-                <CardDescription>
+            <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <CardTitle className="text-base">
+                    Generation Progress
+                  </CardTitle>
+                </div>
+                <CardDescription className="text-xs text-muted-foreground">
                   Real-time updates on your post generation
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-3 pt-2">
                 {/* Current Progress */}
                 {currentProgress && (
                   <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                     {currentProgress.status === 'loading' && (
-                      <Loader2 className="w-5 h-5 animate-spin text-blue-500" />
+                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
                     )}
                     {currentProgress.status === 'success' && (
-                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <CheckCircle className="w-4 h-4 text-green-500" />
                     )}
                     {currentProgress.status === 'error' && (
-                      <AlertCircle className="w-5 h-5 text-red-500" />
+                      <AlertCircle className="w-4 h-4 text-red-500" />
                     )}
                     <div className="flex-1">
-                      <div className="font-medium">
+                      <div className="font-medium text-sm">
                         {currentProgress.message}
                       </div>
                       {currentProgress.details && (
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-xs text-muted-foreground mt-0.5">
                           {currentProgress.details}
                         </div>
                       )}
@@ -707,6 +801,7 @@ export default function CreatePage() {
                           ? 'default'
                           : 'destructive'
                       }
+                      className="text-xs"
                     >
                       {currentProgress.stage}
                     </Badge>
@@ -715,11 +810,11 @@ export default function CreatePage() {
 
                 {/* Notifications */}
                 {notifications.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {notifications.map((notification, index) => (
                       <div
                         key={index}
-                        className={`flex items-center gap-2 p-2 rounded-md text-sm ${
+                        className={`flex items-center gap-2 p-2 rounded-md text-xs ${
                           notification.level === 'error'
                             ? 'bg-red-50 text-red-700 border border-red-200'
                             : notification.level === 'warning'
@@ -729,7 +824,7 @@ export default function CreatePage() {
                             : 'bg-blue-50 text-blue-700 border border-blue-200'
                         }`}
                       >
-                        <Info className="w-4 h-4" />
+                        <Info className="w-3 h-3" />
                         {notification.message}
                       </div>
                     ))}
@@ -738,65 +833,56 @@ export default function CreatePage() {
 
                 {/* Content Analysis Results */}
                 {contentAnalysis && (
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="font-medium text-blue-900 mb-2">
-                      Content Analysis
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      <div>
+                  <div className="p-3 bg-blue-50/80 rounded-lg border border-blue-200/60">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <span className="font-medium text-blue-900 text-sm">
+                        Content Analyzed
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="flex items-center gap-1">
                         <span className="text-blue-700">Type:</span>
-                        <Badge variant="outline" className="ml-2">
+                        <Badge
+                          variant="secondary"
+                          className="text-xs px-1.5 py-0.5 h-5"
+                        >
                           {contentAnalysis.content_type}
                         </Badge>
                       </div>
-                      <div>
+                      <div className="flex items-center gap-1">
                         <span className="text-blue-700">Audience:</span>
-                        <Badge variant="outline" className="ml-2">
+                        <Badge
+                          variant="secondary"
+                          className="text-xs px-1.5 py-0.5 h-5"
+                        >
                           {contentAnalysis.target_audience}
                         </Badge>
                       </div>
                       {contentAnalysis.call_to_action_type && (
-                        <div className="col-span-2">
-                          <span className="text-blue-700">Call to Action:</span>
-                          <Badge variant="outline" className="ml-2">
+                        <div className="flex items-center gap-1 col-span-2">
+                          <span className="text-blue-700">CTA:</span>
+                          <Badge
+                            variant="secondary"
+                            className="text-xs px-1.5 py-0.5 h-5"
+                          >
                             {contentAnalysis.call_to_action_type}
                           </Badge>
                         </div>
                       )}
                     </div>
-                    {contentAnalysis.content_summary && (
-                      <p className="mt-2 text-sm text-blue-800">
-                        <strong>Summary:</strong>{' '}
-                        {contentAnalysis.content_summary}
-                      </p>
-                    )}
                   </div>
                 )}
 
                 {/* Training Posts Results */}
                 {trainingPosts && (
-                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <h4 className="font-medium text-purple-900 mb-2">
-                      Found {trainingPosts.count} Similar Posts
-                    </h4>
-                    {trainingPosts.examples &&
-                      trainingPosts.examples.length > 0 && (
-                        <div className="space-y-2">
-                          {trainingPosts.examples.map((example, index) => (
-                            <div
-                              key={index}
-                              className="p-2 bg-white rounded border"
-                            >
-                              <div className="text-sm font-medium">
-                                {example.platform}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {example.content.substring(0, 100)}...
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                  <div className="p-3 bg-purple-50/80 rounded-lg border border-purple-200/60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                      <span className="font-medium text-purple-900 text-sm">
+                        Found {trainingPosts.count} Similar Posts
+                      </span>
+                    </div>
                   </div>
                 )}
               </CardContent>
@@ -805,33 +891,58 @@ export default function CreatePage() {
 
           {error && (
             <Card>
-              <CardHeader>
-                <CardTitle className="text-destructive">Error</CardTitle>
+              <CardHeader className="pb-2">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-destructive" />
+                  <CardTitle className="text-destructive text-base">
+                    Error
+                  </CardTitle>
+                </div>
               </CardHeader>
-              <CardContent>
-                <p className="text-destructive">{error}</p>
+              <CardContent className="pt-2">
+                <p className="text-destructive text-sm">{error}</p>
               </CardContent>
             </Card>
           )}
 
           {generatedPost && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Generated Post</CardTitle>
-                <CardDescription>
-                  Your AI-generated social media post
+            <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <CheckCircle className="w-5 h-5 text-green-500" />
+                  <CardTitle className="text-lg">Post Generated</CardTitle>
+                </div>
+                <CardDescription className="text-sm">
+                  Ready to share on {form.watch('platform')}
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="p-4 bg-muted rounded-lg">
-                  <p className="whitespace-pre-wrap">{generatedPost}</p>
+              <CardContent className="pt-2">
+                <div className="p-4 bg-muted/50 rounded-lg border">
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed">
+                    {generatedPost}
+                  </p>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  <Button variant="outline" size="sm">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={() => {
+                      navigator.clipboard.writeText(generatedPost);
+                    }}
+                  >
                     Copy to Clipboard
                   </Button>
-                  <Button variant="outline" size="sm">
-                    Edit Post
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8"
+                    onClick={resetForm}
+                  >
+                    Create Another
+                  </Button>
+                  <Button size="sm" className="h-8">
+                    Post to {form.watch('platform')}
                   </Button>
                 </div>
               </CardContent>

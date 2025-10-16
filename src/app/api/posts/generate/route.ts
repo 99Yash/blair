@@ -2,6 +2,7 @@ import { openai } from '@ai-sdk/openai';
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
+  generateObject,
   streamText,
 } from 'ai';
 import { headers } from 'next/headers';
@@ -146,7 +147,6 @@ export async function POST(request: Request) {
           )
         );
 
-        const { generateObject } = await import('ai');
         const { object: analysis } = await generateObject({
           model: openai('gpt-4o-mini'),
           schema: scrapedContentAnalysisSchema,

@@ -249,10 +249,10 @@ Return an object with these exact fields:
         const results = await db.execute(toneSimilaritySql);
 
         // Map the results for streaming
-        const examplePosts = results.rows.map((post: any) => ({
-          content: post.post_content,
-          platform: post.platform,
-          content_type: post.content_type,
+        const examplePosts = results.rows.map((post) => ({
+          content: String(post.post_content ?? ''),
+          platform: String(post.platform ?? ''),
+          content_type: String(post.content_type ?? ''),
         }));
 
         writer.write(

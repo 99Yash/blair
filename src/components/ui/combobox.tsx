@@ -1,14 +1,8 @@
-import {
-  Check,
-  ChevronDown,
-  Command,
-  Hash,
-  LucideIcon,
-  Scroll,
-} from 'lucide-react';
+import { Check, ChevronDown, Hash, LucideIcon, Scroll } from 'lucide-react';
 import React from 'react';
 import { Button } from '~/components/ui/button';
 import {
+  Command,
   CommandEmpty,
   CommandGroup,
   CommandInput,
@@ -113,7 +107,7 @@ const SingleCombobox = React.forwardRef<HTMLButtonElement, SingleComboboxProps>(
           asChild
           className={cn(
             !trigger &&
-              'hover:outline hover:outline-[0.5px] hover:outline-purple-400 focus:outline-purple-400 focus:ring-purple-100 focus:ring-offset-2 focus:outline-1'
+              'hover:outline-[0.5px] hover:outline-purple-400 focus:outline-purple-400 focus:ring-purple-100 focus:ring-offset-2 focus:outline-1'
           )}
         >
           {trigger || (

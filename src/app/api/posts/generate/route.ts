@@ -11,6 +11,7 @@ import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
+import { createPrompt } from '~/lib/ai/utils';
 import { auth } from '~/lib/auth/server';
 import { firecrawl } from '~/lib/firecrawl';
 import {
@@ -207,8 +208,8 @@ Return an object with these exact fields:
                 END
               )
               FROM jsonb_array_elements(tp.tone_profile) AS tone_elem
-              JOIN jsonb_array_elements(${toneProfileJson}::jsonb) AS ut(tone, weight)
-              ON tone_elem->>'tone' = ut.tone
+              JOIN jsonb_to_recordset(${toneProfileJson}::jsonb) AS ut(tone text, weight int)
+                ON (tone_elem->>'tone') = ut.tone
             ) AS tone_match_score
           FROM training_posts tp
           WHERE 1=1
@@ -217,7 +218,7 @@ Return an object with these exact fields:
         // Add existing exact match filters as additional criteria
         if (submissionData.platform) {
           toneSimilaritySql.append(
-            sql` AND tp.platform = ${submissionData.platform}`
+            sql` AND tp.platforms = ${submissionData.platform}`
           );
         }
         if (submissionData.content_type || analysis.content_type) {
@@ -251,7 +252,7 @@ Return an object with these exact fields:
         // Map the results for streaming
         const examplePosts = results.rows.map((post) => ({
           content: String(post.post_content ?? ''),
-          platform: String(post.platform ?? ''),
+          platform: String(post.platforms ?? ''),
           content_type: String(post.content_type ?? ''),
         }));
 
@@ -278,49 +279,45 @@ Return an object with these exact fields:
           )
         );
 
+        const examples = examplePosts.length
+          ? examplePosts
+              .map(
+                (post, i) => `Example ${i + 1}:
+Platform: ${post.platform}
+Content Type: ${post.content_type}
+Content:
+${post.content}`
+              )
+              .join('\n\n')
+          : 'No example posts found.';
+
+        const prompt = createPrompt({
+          taskContext: `You are a professional social media copywriter generating posts for multiple platforms.`,
+          toneContext: `Match the following tone profile (weight out of 100):
+${submissionData.tone_profile.map((t) => `${t.tone}: ${t.weight}`).join(', ')}`,
+          backgroundData: `Link to promote: ${submissionData.original_url}
+Link ownership: ${submissionData.link_ownership_type}
+Content summary: ${analysis.content_summary}
+Content type: ${analysis.content_type}
+Target audience: ${analysis.target_audience}
+Call to action: ${submissionData.call_to_action_type || 'any'}
+Sales pitch strength: ${
+            submissionData.sales_pitch_strength != null
+              ? Math.round(submissionData.sales_pitch_strength / 10)
+              : 'medium'
+          }/10`,
+          detailedTaskInstructions: `Follow best practices for ${submissionData.platform}. Avoid redundant emojis and keep it engaging. Use platform-appropriate phrasing.`,
+          examples,
+          finalRequest: `Write a ${submissionData.platform} post that effectively promotes the link above, in the specified tone and voice.`,
+          outputFormatting: `Reply with the post content only, no explanations.`,
+        });
+
         const generationResult = streamText({
           model: openai('gpt-4o-mini'),
           messages: [
             {
               role: 'user',
-              content: `Generate a social media post for the following link. Don't use redundant emojis.
-
-URL: ${submissionData.original_url}
-Platform: ${submissionData.platform}
-Link Ownership: ${submissionData.link_ownership_type}
-
-Content Analysis:
-- Summary: ${analysis.content_summary}
-- Content Type: ${analysis.content_type}
-- Target Audience: ${analysis.target_audience}
-
-User Preferences:
-- Tone Profile: ${JSON.stringify(submissionData.tone_profile)}
-- Call to Action: ${submissionData.call_to_action_type || 'any'}
-- Sales Pitch Strength: ${
-                submissionData.sales_pitch_strength != null
-                  ? Math.round(submissionData.sales_pitch_strength / 10)
-                  : 'medium'
-              }/10
-
-${
-  examplePosts.length > 0
-    ? `
-Example Posts:
-${examplePosts
-  .map(
-    (post, index) => `
-Example ${index + 1}:
-Content: ${post.content}
-Platform: ${post.platform}
-Content Type: ${post.content_type}`
-  )
-  .join('\n')}
-`
-    : 'No example posts found.'
-}
-
-Generate an engaging social media post that promotes this link effectively. Make sure the tone matches the user's preferences and follows best practices for the specified platform.`,
+              content: prompt,
             },
           ],
         });

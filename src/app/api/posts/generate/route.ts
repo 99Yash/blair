@@ -81,6 +81,9 @@ export async function POST(request: Request) {
   // We'll send progress updates and final result
   const stream = createUIMessageStream<StreamingPostMessage>({
     execute: async ({ writer }) => {
+      // Track the stage we are currently in so we can surface accurate errors
+      let currentStage: (typeof PROGRESS_STAGES)[keyof typeof PROGRESS_STAGES] =
+        PROGRESS_STAGES.SCRAPING;
       try {
         // Send initial progress
         writer.write(
@@ -95,6 +98,7 @@ export async function POST(request: Request) {
         // Unique constraint violations will be handled below.
 
         // Step 1: Scrape and analyze content
+        currentStage = PROGRESS_STAGES.SCRAPING;
         writer.write(
           createProgressData(
             PROGRESS_STAGES.SCRAPING,
@@ -116,6 +120,7 @@ export async function POST(request: Request) {
         const content = scrapedContent.markdown ?? scrapedContent.html ?? '';
         const slicedContent = content.slice(0, 100000);
 
+        currentStage = PROGRESS_STAGES.ANALYZING;
         writer.write(
           createProgressData(
             PROGRESS_STAGES.ANALYZING,
@@ -174,6 +179,7 @@ Return an object with these exact fields:
         );
 
         // Step 2: Search for training posts using tone similarity
+        currentStage = PROGRESS_STAGES.SEARCHING;
         writer.write(
           createProgressData(
             PROGRESS_STAGES.SEARCHING,
@@ -263,6 +269,7 @@ Return an object with these exact fields:
         );
 
         // Step 3: Generate post content
+        currentStage = PROGRESS_STAGES.GENERATING;
         writer.write(
           createProgressData(
             PROGRESS_STAGES.GENERATING,
@@ -336,6 +343,17 @@ Generate an engaging social media post that promotes this link effectively. Make
           }
         }
 
+        // Flush a final in-progress update if the total length isn’t a multiple of 50
+        if (generatedContent.length % 50 !== 0) {
+          writer.write(
+            createProgressData(
+              PROGRESS_STAGES.GENERATING,
+              `Generating post content... (${generatedContent.length} characters)`,
+              'loading'
+            )
+          );
+        }
+
         if (!generatedContent) {
           writer.write(
             createProgressData(
@@ -359,6 +377,7 @@ Generate an engaging social media post that promotes this link effectively. Make
         );
 
         // Step 4: Save to database
+        currentStage = PROGRESS_STAGES.SAVING;
         writer.write(
           createProgressData(
             PROGRESS_STAGES.SAVING,
@@ -433,7 +452,7 @@ Generate an engaging social media post that promotes this link effectively. Make
         console.error('ERROR: Exception during post generation:', err);
         writer.write(
           createProgressData(
-            PROGRESS_STAGES.SAVING,
+            currentStage,
             'An error occurred during generation',
             'error'
           )

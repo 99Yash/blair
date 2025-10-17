@@ -7,7 +7,7 @@ import {
 } from 'ai';
 import { headers } from 'next/headers';
 
-import { and, eq, sql } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
@@ -173,93 +173,77 @@ Return an object with these exact fields:
           })
         );
 
-        // Step 2: Search for training posts
+        // Step 2: Search for training posts using tone similarity
         writer.write(
           createProgressData(
             PROGRESS_STAGES.SEARCHING,
-            'Searching for similar posts...',
+            'Searching for tone-similar posts...',
             'loading'
           )
         );
 
-        const { training_posts } = await import('~/db/schemas/training-post');
+        // We'll use analysis.tone_profile (from content analysis) if available,
+        // otherwise fallback to submissionData.tone_profile.
+        const toneProfile =
+          analysis.tone_profile ?? submissionData.tone_profile;
 
-        const exactMatchClauses = [];
+        // Convert toneProfile to JSON so we can use it inside SQL
+        const toneProfileJson = JSON.stringify(toneProfile);
+
+        const toneSimilaritySql = sql`
+          SELECT
+            tp.*,
+            (
+              SELECT SUM(
+                CASE
+                  WHEN ABS((tone_elem->>'weight')::int - ut.weight) <= 10 THEN 1
+                  ELSE 0
+                END
+              )
+              FROM jsonb_array_elements(tp.tone_profile) AS tone_elem
+              JOIN jsonb_array_elements(${toneProfileJson}::jsonb) AS ut(tone, weight)
+              ON tone_elem->>'tone' = ut.tone
+            ) AS tone_match_score
+          FROM training_posts tp
+          WHERE 1=1
+        `;
+
+        // Add existing exact match filters as additional criteria
         if (submissionData.platform) {
-          exactMatchClauses.push(
-            eq(training_posts.platform, submissionData.platform)
+          toneSimilaritySql.append(
+            sql` AND tp.platform = ${submissionData.platform}`
           );
         }
         if (submissionData.content_type || analysis.content_type) {
-          exactMatchClauses.push(
-            eq(
-              training_posts.content_type,
+          toneSimilaritySql.append(
+            sql` AND tp.content_type = ${
               submissionData.content_type ?? analysis.content_type
-            )
+            }`
           );
         }
         if (submissionData.target_audience || analysis.target_audience) {
-          exactMatchClauses.push(
-            eq(
-              training_posts.target_audience,
+          toneSimilaritySql.append(
+            sql` AND tp.target_audience = ${
               submissionData.target_audience ?? analysis.target_audience
-            )
+            }`
           );
         }
         if (submissionData.call_to_action_type) {
-          exactMatchClauses.push(
-            eq(
-              training_posts.call_to_action_type,
-              submissionData.call_to_action_type
-            )
+          toneSimilaritySql.append(
+            sql` AND tp.call_to_action_type = ${submissionData.call_to_action_type}`
           );
         }
 
-        let results: (typeof training_posts.$inferSelect)[] = [];
-        if (exactMatchClauses.length > 0) {
-          const query = db
-            .select()
-            .from(training_posts)
-            .where(and(...exactMatchClauses))
-            .limit(5);
-          results = await query;
-        }
+        toneSimilaritySql.append(sql`
+          ORDER BY tone_match_score DESC
+          LIMIT 3
+        `);
 
-        if (results.length === 0 && exactMatchClauses.length > 0) {
-          const priorityFilters = [];
-          if (submissionData.platform)
-            priorityFilters.push(
-              eq(training_posts.platform, submissionData.platform)
-            );
-          if (submissionData.content_type || analysis.content_type) {
-            priorityFilters.push(
-              eq(
-                training_posts.content_type,
-                submissionData.content_type ?? analysis.content_type
-              )
-            );
-          }
+        // Execute the query
+        const results = await db.execute(toneSimilaritySql);
 
-          if (priorityFilters.length > 0) {
-            const query = db
-              .select()
-              .from(training_posts)
-              .where(and(...priorityFilters))
-              .limit(5);
-            results = await query;
-          }
-
-          if (results.length === 0) {
-            const fallbackQuery = db
-              .select()
-              .from(training_posts)
-              .orderBy(sql`${training_posts.createdAt} DESC`)
-              .limit(5);
-            results = await fallbackQuery;
-          }
-        }
-
-        const examplePosts = results.slice(0, 3).map((post) => ({
+        // Map the results for streaming
+        const examplePosts = results.rows.map((post: any) => ({
           content: post.post_content,
           platform: post.platform,
           content_type: post.content_type,
@@ -268,11 +252,15 @@ Return an object with these exact fields:
         writer.write(
           createProgressData(
             PROGRESS_STAGES.SEARCHING,
-            `Found ${results.length} similar posts`,
+            `Found ${
+              results.rowCount ?? results.rows.length
+            } tone-similar posts`,
             'success'
           )
         );
-        writer.write(createTrainingPostsData(results.length, examplePosts));
+        writer.write(
+          createTrainingPostsData(results.rows.length, examplePosts)
+        );
 
         // Step 3: Generate post content
         writer.write(

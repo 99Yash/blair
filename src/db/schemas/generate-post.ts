@@ -29,7 +29,5 @@ export const generate_posts = pgTable(
       .references(() => user.id, { onDelete: 'cascade' }),
     ...lifecycle_dates,
   },
-  (table) => ({
-    unique_user_url: unique().on(table.user_id, table.original_url),
-  })
+  (table) => [unique().on(table.user_id, table.original_url)]
 );

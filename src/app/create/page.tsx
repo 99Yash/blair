@@ -634,28 +634,19 @@ export default function CreatePage() {
                           <FormControl>
                             <div className="space-y-3">
                               <Slider
-                                value={[
-                                  field.value
-                                    ? Math.round(field.value / 10)
-                                    : 5,
-                                ]}
+                                value={[field.value ? field.value : 5]}
                                 onValueChange={([value]) =>
-                                  field.onChange(value * 10)
+                                  field.onChange(value)
                                 }
-                                max={10}
+                                max={100}
                                 min={1}
                                 step={1}
                                 className="h-6"
                               />
                               <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>Subtle (1)</span>
                                 <span className="font-medium">
-                                  {field.value
-                                    ? Math.round(field.value / 10)
-                                    : 5}
-                                  /10
+                                  {field.value ? field.value : 5}%
                                 </span>
-                                <span>Aggressive (10)</span>
                               </div>
                             </div>
                           </FormControl>
@@ -693,8 +684,8 @@ export default function CreatePage() {
         <div className="space-y-4">
           {/* Progress and Notifications */}
           {(isSubmitting ||
-            (currentProgress && currentProgress.status === 'loading') ||
-            notifications.length > 0) && (
+            (currentProgress && !generatedPost) ||
+            (notifications.length > 0 && !generatedPost)) && (
             <motion.div
               layout
               initial="initial"
@@ -715,22 +706,23 @@ export default function CreatePage() {
                   </CardDescription>
 
                   {/* Subtle indeterminate progress bar during loading */}
-                  {(isSubmitting || currentProgress?.status === 'loading') && (
-                    <div
-                      className="mt-3 relative h-1 rounded bg-muted overflow-hidden"
-                      aria-hidden="true"
-                    >
-                      <motion.div
-                        className="absolute inset-y-0 left-0 w-1/3 bg-primary"
-                        animate={{ x: ['-100%', '100%'] }}
-                        transition={{
-                          repeat: Number.POSITIVE_INFINITY,
-                          duration: 1.2,
-                          ease: easeOut,
-                        }}
-                      />
-                    </div>
-                  )}
+                  {(isSubmitting || currentProgress?.status === 'loading') &&
+                    !generatedPost && (
+                      <div
+                        className="mt-3 relative h-1 rounded bg-muted overflow-hidden"
+                        aria-hidden="true"
+                      >
+                        <motion.div
+                          className="absolute inset-y-0 left-0 w-1/3 bg-primary"
+                          animate={{ x: ['-100%', '100%'] }}
+                          transition={{
+                            repeat: Number.POSITIVE_INFINITY,
+                            duration: 1.2,
+                            ease: easeOut,
+                          }}
+                        />
+                      </div>
+                    )}
                 </CardHeader>
 
                 <CardContent className="space-y-3 pt-2">

@@ -194,7 +194,7 @@ Return an object with these exact fields:
           exactMatchClauses.push(
             eq(
               training_posts.content_type,
-              submissionData.content_type || analysis.content_type
+              submissionData.content_type ?? analysis.content_type
             )
           );
         }
@@ -202,7 +202,7 @@ Return an object with these exact fields:
           exactMatchClauses.push(
             eq(
               training_posts.target_audience,
-              submissionData.target_audience || analysis.target_audience
+              submissionData.target_audience ?? analysis.target_audience
             )
           );
         }
@@ -235,7 +235,7 @@ Return an object with these exact fields:
             priorityFilters.push(
               eq(
                 training_posts.content_type,
-                submissionData.content_type || analysis.content_type
+                submissionData.content_type ?? analysis.content_type
               )
             );
           }
@@ -303,7 +303,11 @@ Content Analysis:
 User Preferences:
 - Tone Profile: ${JSON.stringify(submissionData.tone_profile)}
 - Call to Action: ${submissionData.call_to_action_type || 'any'}
-- Sales Pitch Strength: ${submissionData.sales_pitch_strength || 'medium'}/10
+- Sales Pitch Strength: ${
+                submissionData.sales_pitch_strength != null
+                  ? Math.round(submissionData.sales_pitch_strength / 10)
+                  : 'medium'
+              }/10
 
 ${
   examplePosts.length > 0
@@ -379,25 +383,11 @@ Generate an engaging social media post that promotes this link effectively. Make
           original_url: submissionData.original_url,
           post_content: generatedContent,
           platform: submissionData.platform,
-          content_type: analysis.content_type as
-            | 'self_help'
-            | 'tech_tutorial'
-            | 'news_article'
-            | 'product_review'
-            | 'thought_leadership'
-            | 'entertainment'
-            | 'other',
-          content_summary: analysis.content_summary || '',
-          target_audience: analysis.target_audience as
-            | 'developers'
-            | 'marketers'
-            | 'entrepreneurs'
-            | 'students'
-            | 'parents'
-            | 'general_public'
-            | 'creatives'
-            | 'finance_professionals'
-            | 'other',
+          content_type: submissionData.content_type ?? analysis.content_type,
+          content_summary: analysis.content_summary,
+          target_audience:
+            submissionData.target_audience ?? analysis.target_audience,
+          link_ownership_type: submissionData.link_ownership_type,
           user_id: session.user.id,
         };
 

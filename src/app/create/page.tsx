@@ -1,12 +1,14 @@
 'use client';
 
+import { useChat } from '@ai-sdk/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AnimatePresence, easeOut, motion } from 'motion/react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Streamdown } from 'streamdown';
 import * as z from 'zod/v4';
 
+import { DefaultChatTransport } from 'ai';
 import {
   AlertCircle,
   CheckCircle,
@@ -44,7 +46,10 @@ import {
 } from '~/components/ui/select';
 import { Slider } from '~/components/ui/slider';
 import { Switch } from '~/components/ui/switch';
-import { PROGRESS_STAGES } from '~/lib/types/streaming';
+import {
+  StreamingDataMap,
+  type StreamingPostMessage,
+} from '~/lib/types/streaming';
 
 // Form schema that matches the API expectations but makes AI-inferable fields optional
 const createPostFormSchema = z.object({
@@ -137,37 +142,6 @@ const ctaOptions = [
   { value: 'other', label: 'Other' },
 ];
 
-// Progress state management
-type ProgressState = {
-  stage: string;
-  message: string;
-  status: 'loading' | 'success' | 'error';
-  details?: string;
-};
-
-type NotificationState = {
-  message: string;
-  level: 'info' | 'warning' | 'error' | 'success';
-};
-
-type ContentAnalysisState = {
-  content_summary: string;
-  content_type: string;
-  target_audience: string;
-  tone_profile?: Array<{ tone: string; weight: number }>;
-  call_to_action_type?: string;
-  sales_pitch_strength?: number;
-};
-
-type TrainingPostsState = {
-  count: number;
-  examples?: Array<{
-    content: string;
-    platform: string;
-    content_type: string;
-  }>;
-};
-
 // Motion variants
 const fadeInUp = {
   initial: { opacity: 0, y: 8 },
@@ -184,20 +158,53 @@ const fadeIn = {
 };
 
 export default function CreatePage() {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [generatedPost, setGeneratedPost] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // Only keep transient notifications in state (not persisted in message parts)
+  const [notifications, setNotifications] = useState<
+    StreamingDataMap['notification'][]
+  >([]);
 
-  // Streaming state - now using useChat for cleaner streaming
-  const [currentProgress, setCurrentProgress] = useState<ProgressState | null>(
-    null
-  );
-  const [notifications, setNotifications] = useState<NotificationState[]>([]);
-  const [contentAnalysis, setContentAnalysis] =
-    useState<ContentAnalysisState | null>(null);
-  const [trainingPosts, setTrainingPosts] = useState<TrainingPostsState | null>(
-    null
-  );
+  // Store the current form data to send with the request
+  const formDataRef = useRef<CreatePostFormData | null>(null);
+
+  // Use AI SDK's useChat hook with custom typed messages and transport
+  const { messages, sendMessage, status, error, clearError } =
+    useChat<StreamingPostMessage>({
+      transport: new DefaultChatTransport({
+        api: '/api/posts/generate',
+        prepareSendMessagesRequest: () => {
+          // Send the form data as the request body
+          return {
+            body: formDataRef.current ?? {},
+          };
+        },
+      }),
+      onData: (dataPart) => {
+        // Only handle transient notifications - all other data parts are persisted in messages
+        if (dataPart.type === 'data-notification') {
+          setNotifications((prev) => [...prev, dataPart.data]);
+        }
+      },
+      onError: (error) => {
+        console.error('Chat error:', error);
+      },
+    });
+
+  const isSubmitting = status === 'submitted' || status === 'streaming';
+
+  // Derive data from message parts instead of separate state
+  const lastMessage = messages[messages.length - 1];
+  const currentProgress = lastMessage?.parts.find(
+    (part) => part.type === 'data-progress'
+  )?.data;
+  const contentAnalysis = lastMessage?.parts.find(
+    (part) => part.type === 'data-content_analysis'
+  )?.data;
+  const trainingPosts = lastMessage?.parts.find(
+    (part) => part.type === 'data-training_posts'
+  )?.data;
+  const generatedPost = lastMessage?.parts.find(
+    (part) => part.type === 'data-generated_post'
+  )?.data;
 
   const form = useForm<CreatePostFormData>({
     resolver: zodResolver(createPostFormSchema),
@@ -242,140 +249,33 @@ export default function CreatePage() {
 
   const resetForm = () => {
     form.reset();
-    setGeneratedPost(null);
-    setError(null);
-    setCurrentProgress(null);
+    clearError();
     setNotifications([]);
-    setContentAnalysis(null);
-    setTrainingPosts(null);
-    setIsSubmitting(false);
   };
 
   const onSubmit = async (data: CreatePostFormData) => {
-    setIsSubmitting(true);
-    setError(null);
-    setGeneratedPost(null);
-
-    // Clear previous streaming state
-    setCurrentProgress(null);
+    // Clear transient notifications
     setNotifications([]);
-    setContentAnalysis(null);
-    setTrainingPosts(null);
+    clearError();
 
-    try {
-      // Ensure we have at least one tone profile since the API expects it
-      const submissionData = {
-        ...data,
-        tone_profile:
-          data.tone_profile && data.tone_profile.length > 0
-            ? data.tone_profile
-            : [{ tone: 'casual', weight: 50 }], // Default tone if none specified
-      };
+    // Ensure we have at least one tone profile since the API expects it
+    const submissionData = {
+      ...data,
+      tone_profile:
+        data.tone_profile && data.tone_profile.length > 0
+          ? data.tone_profile
+          : [{ tone: 'casual' as const, weight: 50 }], // Default tone if none specified
+    };
 
-      const response = await fetch('/api/posts/generate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submissionData),
-      });
+    // Store the form data in the ref so it can be accessed by prepareSendMessagesRequest
+    formDataRef.current = submissionData;
 
-      if (!response.ok) {
-        const result = await response.json();
-        setError(result.message || 'Failed to generate post');
-        return;
-      }
-
-      // Handle streaming response
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('No response body reader available');
-      }
-
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-
-        // Keep the last line in buffer as it might be incomplete
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const jsonStr = line.slice(6).trim();
-
-              // Skip empty data
-              if (!jsonStr) continue;
-
-              // Skip SSE end markers and non-JSON content
-              if (jsonStr === '[DONE]' || jsonStr.startsWith(':')) continue;
-
-              const data = JSON.parse(jsonStr);
-
-              // Validate that data has the expected structure
-              if (!data || typeof data !== 'object' || !data.type) {
-                console.warn('Invalid streaming data structure:', data);
-                continue;
-              }
-
-              // Handle different data part types
-              if (data.type === 'data-progress') {
-                setCurrentProgress({
-                  stage: data.data.stage,
-                  message: data.data.message,
-                  status: data.data.status,
-                  details: data.data.details,
-                });
-              } else if (data.type === 'data-notification') {
-                setNotifications((prev) => [
-                  ...prev,
-                  {
-                    message: data.data.message,
-                    level: data.data.level,
-                  },
-                ]);
-              } else if (data.type === 'data-content_analysis') {
-                setContentAnalysis(data.data);
-              } else if (data.type === 'data-training_posts') {
-                setTrainingPosts(data.data);
-              } else if (data.type === 'data-generated_post') {
-                setGeneratedPost(data.data.content);
-                setCurrentProgress({
-                  stage: PROGRESS_STAGES.SAVING,
-                  message: 'Post generation completed!',
-                  status: 'success',
-                });
-              }
-            } catch (parseError) {
-              console.error(
-                'Error parsing streaming data:',
-                parseError,
-                'Line:',
-                line
-              );
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Form submission error:', error);
-      setError('Failed to generate post. Please try again.');
-      setCurrentProgress({
-        stage: PROGRESS_STAGES.SAVING,
-        message: 'An error occurred during generation',
-        status: 'error',
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    // Use AI SDK's sendMessage to trigger the streaming
+    // Send a placeholder user message since our backend doesn't use chat messages
+    sendMessage({
+      role: 'user',
+      parts: [{ type: 'text', text: 'Generate post' }],
+    });
   };
 
   return (
@@ -793,10 +693,8 @@ export default function CreatePage() {
         <div className="space-y-4">
           {/* Progress and Notifications */}
           {(isSubmitting ||
-            currentProgress ||
-            notifications.length > 0 ||
-            contentAnalysis ||
-            trainingPosts) && (
+            (currentProgress && currentProgress.status === 'loading') ||
+            notifications.length > 0) && (
             <motion.div
               layout
               initial="initial"
@@ -1056,7 +954,7 @@ export default function CreatePage() {
                 </div>
               </CardHeader>
               <CardContent className="pt-2">
-                <p className="text-destructive text-sm">{error}</p>
+                <p className="text-destructive text-sm">{error.message}</p>
               </CardContent>
             </Card>
           )}
@@ -1078,7 +976,7 @@ export default function CreatePage() {
                       <CardTitle className="text-lg">Post Generated</CardTitle>
                     </div>
                     <CardDescription className="text-sm">
-                      Ready to share on {form.watch('platform')}
+                      Ready to share on {generatedPost.platform}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-2">
@@ -1087,7 +985,7 @@ export default function CreatePage() {
                         className="text-sm leading-relaxed prose prose-sm max-w-none"
                         parseIncompleteMarkdown={true}
                       >
-                        {generatedPost}
+                        {generatedPost.content}
                       </Streamdown>
                     </div>
                     <div className="mt-4 flex gap-2">
@@ -1096,7 +994,7 @@ export default function CreatePage() {
                         size="sm"
                         className="h-8 bg-transparent"
                         onClick={() => {
-                          navigator.clipboard.writeText(generatedPost);
+                          navigator.clipboard.writeText(generatedPost.content);
                         }}
                       >
                         Copy to Clipboard
@@ -1110,7 +1008,7 @@ export default function CreatePage() {
                         Create Another
                       </Button>
                       <Button size="sm" className="h-8">
-                        Post to {form.watch('platform')}
+                        Post to {generatedPost.platform}
                       </Button>
                     </div>
                   </CardContent>

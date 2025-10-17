@@ -278,9 +278,8 @@ Return an object with these exact fields:
           )
         );
 
-        // Use streamText for the actual content generation
         const generationResult = streamText({
-          model: openai('gpt-4o'),
+          model: openai('gpt-4o-mini'),
           messages: [
             {
               role: 'user',

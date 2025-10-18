@@ -3,10 +3,26 @@
 import { useChat } from '@ai-sdk/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AnimatePresence, easeOut, motion } from 'motion/react';
+import dynamic from 'next/dynamic';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Streamdown } from 'streamdown';
 import * as z from 'zod/v4';
+
+// Dynamically import LLMOutput to avoid SSR issues with Shiki
+const LLMOutput = dynamic(
+  () =>
+    import('~/components/ui/llm-output').then((mod) => ({
+      default: mod.LLMOutput,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="text-sm text-muted-foreground animate-pulse">
+        Loading renderer...
+      </div>
+    ),
+  }
+);
 
 import { DefaultChatTransport } from 'ai';
 import {
@@ -202,9 +218,12 @@ export default function CreatePage() {
   const trainingPosts = lastMessage?.parts.find(
     (part) => part.type === 'data-training_posts'
   )?.data;
-  const generatedPost = lastMessage?.parts.find(
+  // Use the LAST occurrence of generated_post to get the latest streamed content
+  const generatedPostParts = lastMessage?.parts.filter(
     (part) => part.type === 'data-generated_post'
-  )?.data;
+  );
+  const generatedPost =
+    generatedPostParts?.[generatedPostParts.length - 1]?.data;
 
   const form = useForm<CreatePostFormData>({
     resolver: zodResolver(createPostFormSchema),
@@ -973,12 +992,13 @@ export default function CreatePage() {
                   </CardHeader>
                   <CardContent className="pt-2">
                     <div className="p-4 bg-muted/50 rounded-lg border">
-                      <Streamdown
-                        className="text-sm leading-relaxed prose prose-sm max-w-none"
-                        parseIncompleteMarkdown={true}
-                      >
-                        {generatedPost.content}
-                      </Streamdown>
+                      <LLMOutput
+                        output={generatedPost.content}
+                        isStreamFinished={
+                          status !== 'streaming' && status !== 'submitted'
+                        }
+                        className="text-sm leading-relaxed"
+                      />
                     </div>
                     <div className="mt-4 flex gap-2">
                       <Button

@@ -322,13 +322,18 @@ Sales pitch strength: ${
           ],
         });
 
-        // Collect the generated content
+        // Collect the generated content and stream it to the client
         let generatedContent = '';
         for await (const delta of generationResult.textStream) {
           generatedContent += delta;
-          // Send incremental updates as content is generated
+
+          // Stream the content as it's being generated (send every chunk)
+          writer.write(
+            createGeneratedPostData(generatedContent, submissionData.platform)
+          );
+
+          // Also update progress every 50 characters
           if (generatedContent.length % 50 === 0) {
-            // Update every 50 characters
             writer.write(
               createProgressData(
                 PROGRESS_STAGES.GENERATING,
@@ -337,17 +342,6 @@ Sales pitch strength: ${
               )
             );
           }
-        }
-
-        // Flush a final in-progress update if the total length isn’t a multiple of 50
-        if (generatedContent.length % 50 !== 0) {
-          writer.write(
-            createProgressData(
-              PROGRESS_STAGES.GENERATING,
-              `Generating post content... (${generatedContent.length} characters)`,
-              'loading'
-            )
-          );
         }
 
         if (!generatedContent) {
@@ -405,10 +399,8 @@ Sales pitch strength: ${
             )
           );
 
-          // Send final result as a data message that useChat can handle
-          writer.write(
-            createGeneratedPostData(generatedContent, submissionData.platform)
-          );
+          // Note: Generated post data is already streamed during generation
+          // No need to send it again here
 
           writer.write(
             createNotificationData(

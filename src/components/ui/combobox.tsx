@@ -1,4 +1,6 @@
-import { Check, ChevronDown, Hash, LucideIcon, Scroll } from 'lucide-react';
+'use client';
+
+import { Check, ChevronDown, Hash, LucideIcon } from 'lucide-react';
 import React from 'react';
 import { Button } from '~/components/ui/button';
 import {
@@ -16,6 +18,7 @@ import {
 } from '~/components/ui/popover';
 import { cn } from '~/lib/utils';
 import { AnimatedContainer } from './animated-container';
+import { Scroll } from './scroll';
 
 type Item = {
   value: string;

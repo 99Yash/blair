@@ -1,3 +1,5 @@
+'use client';
+
 import * as React from 'react';
 import { RefObject } from 'react';
 import { useScrollProgress } from '~/hooks/use-scroll-progress';

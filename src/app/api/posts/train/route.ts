@@ -86,16 +86,16 @@ export async function POST(request: Request) {
       original_url: validatedBody.original_url,
       post_content: scrapedContent.markdown ?? '',
       platform: validatedBody.platform,
-      content_type: validatedBody.content_type,
+      content_type: analysis.content_type,
       content_summary: analysis.content_summary,
-      call_to_action_type: analysis.call_to_action_type,
+      call_to_action_type: analysis.call_to_action_type ?? 'other',
       sales_pitch_strength: analysis.sales_pitch_strength,
       tone_profile: analysis.tone_profile,
       link_ownership_type: validatedBody.link_ownership_type,
-      target_audience: validatedBody.target_audience,
-      user_id: session.user.id,
+      target_audience: analysis.target_audience,
       embedding: embeddings[0],
       content_summary_embedding: embeddings[1],
+      user_id: session.user.id,
     });
 
     return NextResponse.json(

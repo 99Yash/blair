@@ -3,15 +3,23 @@
 import { useChat } from '@ai-sdk/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AnimatePresence, easeOut, motion } from 'motion/react';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { Streamdown } from 'streamdown';
 import * as z from 'zod/v4';
 
 import { DefaultChatTransport } from 'ai';
-import { AlertCircle, CheckCircle, Clock, Info, Loader2 } from 'lucide-react';
+import {
+  AlertCircle,
+  CheckCircle,
+  ChevronRight,
+  FileText,
+  Loader2,
+  Search,
+  Sparkles,
+  Zap,
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
   Card,
@@ -38,10 +46,105 @@ import {
   SelectValue,
 } from '~/components/ui/select';
 import { Switch } from '~/components/ui/switch';
-import {
-  StreamingDataMap,
-  type StreamingPostMessage,
-} from '~/lib/types/streaming';
+import { type StreamingPostMessage } from '~/lib/types/streaming';
+
+// Timeline step component
+interface TimelineStepProps {
+  icon: React.ReactNode;
+  title: string;
+  description?: string;
+  status: 'pending' | 'loading' | 'completed' | 'error';
+  isLast?: boolean;
+}
+
+function TimelineStep({
+  icon,
+  title,
+  description,
+  status,
+  isLast,
+}: TimelineStepProps) {
+  const getStatusColor = () => {
+    switch (status) {
+      case 'completed':
+        return 'text-green-600 bg-green-100 border-green-200';
+      case 'loading':
+        return 'text-blue-600 bg-blue-100 border-blue-200 animate-pulse';
+      case 'error':
+        return 'text-red-600 bg-red-100 border-red-200';
+      default:
+        return 'text-gray-400 bg-gray-100 border-gray-200';
+    }
+  };
+
+  const getIconColor = () => {
+    switch (status) {
+      case 'completed':
+        return 'text-green-600';
+      case 'loading':
+        return 'text-blue-600 animate-pulse';
+      case 'error':
+        return 'text-red-600';
+      default:
+        return 'text-gray-400';
+    }
+  };
+
+  return (
+    <div className="flex items-start gap-3">
+      <div
+        className={`flex-shrink-0 w-8 h-8 rounded-full border-2 flex items-center justify-center ${getStatusColor()}`}
+      >
+        <div className={getIconColor()}>
+          {status === 'loading' ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            icon
+          )}
+        </div>
+      </div>
+      <div className="flex-1 min-w-0 pb-6">
+        <div className="flex items-center gap-2 mb-1">
+          <h3
+            className={`text-sm font-medium ${
+              status === 'completed'
+                ? 'text-green-900'
+                : status === 'loading'
+                ? 'text-blue-900'
+                : status === 'error'
+                ? 'text-red-900'
+                : 'text-gray-600'
+            }`}
+          >
+            {title}
+          </h3>
+          {status === 'completed' && (
+            <CheckCircle className="w-3 h-3 text-green-600" />
+          )}
+          {status === 'error' && (
+            <AlertCircle className="w-3 h-3 text-red-600" />
+          )}
+        </div>
+        {description && (
+          <p
+            className={`text-xs ${
+              status === 'completed'
+                ? 'text-green-700'
+                : status === 'loading'
+                ? 'text-blue-700'
+                : status === 'error'
+                ? 'text-red-700'
+                : 'text-gray-500'
+            }`}
+          >
+            {description}
+          </p>
+        )}
+      </div>
+      {!isLast && <ChevronRight className="w-4 h-4 text-gray-300 mt-2" />}
+    </div>
+  );
+}
 
 // ToneSelector component for selecting tones and weights
 interface ToneSelectorProps {
@@ -104,22 +207,24 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Tone Profile</label>
+      <div className="space-y-1">
+        <label className="text-sm font-medium text-foreground">
+          Tone Profile
+        </label>
         <p className="text-xs text-muted-foreground">
           Select tones and assign weights (total should not exceed 100)
         </p>
       </div>
 
       {/* Selected tones */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {value.map((tone) => (
           <div
             key={tone.tone}
-            className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+            className="flex items-center gap-3 p-3 bg-muted/30 rounded-md border border-border/50"
           >
             <div className="flex-1">
-              <div className="font-medium text-sm">
+              <div className="font-medium text-sm text-foreground">
                 {availableTones.find((t) => t.value === tone.tone)?.label}
               </div>
               <div className="text-xs text-muted-foreground">
@@ -135,7 +240,7 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
                 onChange={(e) =>
                   updateWeight(tone.tone, parseInt(e.target.value) || 0)
                 }
-                className="w-16 h-8 text-xs"
+                className="w-16 h-9 text-xs"
                 placeholder="0"
               />
               <span className="text-xs text-muted-foreground w-8">%</span>
@@ -159,7 +264,7 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
           <label className="text-sm font-medium text-muted-foreground">
             Add Tones
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 gap-3">
             {availableTones
               .filter(
                 (tone) =>
@@ -172,10 +277,12 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
                   variant="outline"
                   size="sm"
                   onClick={() => addTone(tone.value)}
-                  className="h-auto p-3 text-left justify-start"
+                  className="h-auto p-3 text-left justify-start border-border/50 hover:bg-muted/50"
                 >
                   <div>
-                    <div className="font-medium text-sm">{tone.label}</div>
+                    <div className="font-medium text-sm text-foreground">
+                      {tone.label}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {tone.description}
                     </div>
@@ -187,12 +294,12 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
       )}
 
       {/* Weight summary */}
-      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-        <div className="text-sm">
+      <div className="flex items-center justify-between p-3 bg-muted/20 rounded-md border border-border/30">
+        <div className="text-sm text-foreground">
           <span className="font-medium">Total Weight:</span> {totalWeight}/100
         </div>
         <div
-          className={`text-xs ${
+          className={`text-xs font-medium ${
             remainingWeight >= 0 ? 'text-muted-foreground' : 'text-destructive'
           }`}
         >
@@ -244,11 +351,6 @@ interface GeneratePostFormProps {
 }
 
 export function GeneratePostForm({ className }: GeneratePostFormProps) {
-  // Only keep transient notifications in state (not persisted in message parts)
-  const [notifications, setNotifications] = useState<
-    StreamingDataMap['notification'][]
-  >([]);
-
   // Store the current form data to send with the request
   const formDataRef = useRef<CreatePostFormData | null>(null);
 
@@ -266,7 +368,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
       onData: (dataPart) => {
         // Only handle transient notifications - all other data parts are persisted in messages
         if (dataPart.type === 'data-notification') {
-          setNotifications((prev) => [...prev, dataPart.data]);
+          // Notifications are handled in the UI but not stored in state
         }
       },
       onError: (error) => {
@@ -278,9 +380,6 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
 
   // Derive data from message parts instead of separate state
   const lastMessage = messages[messages.length - 1];
-  const currentProgress = lastMessage?.parts.find(
-    (part) => part.type === 'data-progress'
-  )?.data;
   const contentAnalysis = lastMessage?.parts.find(
     (part) => part.type === 'data-content_analysis'
   )?.data;
@@ -293,6 +392,56 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
   );
   const generatedPost =
     generatedPostParts?.[generatedPostParts.length - 1]?.data;
+
+  // Extract notifications from messages for display
+  const notifications = messages
+    .flatMap((message) => message.parts)
+    .filter((part) => part.type === 'data-notification')
+    .map((part) => part.data);
+
+  // Determine step statuses - only when there's activity
+  const getStepStatuses = () => {
+    if (!isSubmitting && !contentAnalysis && !trainingPosts && !generatedPost) {
+      return [];
+    }
+
+    const steps = [
+      {
+        id: 'analyzing',
+        status: contentAnalysis
+          ? 'completed'
+          : isSubmitting
+          ? 'loading'
+          : 'pending',
+        data: contentAnalysis,
+      },
+      {
+        id: 'searching',
+        status: trainingPosts
+          ? 'completed'
+          : contentAnalysis && isSubmitting
+          ? 'loading'
+          : 'pending',
+        data: trainingPosts,
+      },
+      {
+        id: 'generating',
+        status: generatedPost
+          ? 'completed'
+          : trainingPosts && isSubmitting
+          ? 'loading'
+          : 'pending',
+        data: generatedPost,
+      },
+    ];
+    return steps;
+  };
+
+  const stepStatuses = getStepStatuses();
+
+  // Check if progress section should be shown
+  const shouldShowProgress =
+    isSubmitting || messages.length > 0 || error || notifications.length > 0;
 
   const form = useForm<CreatePostFormData>({
     resolver: zodResolver(createPostFormSchema),
@@ -318,12 +467,10 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
       ],
     });
     clearError();
-    setNotifications([]);
   };
 
   const onSubmit = async (data: CreatePostFormData) => {
-    // Clear transient notifications
-    setNotifications([]);
+    // Clear any previous errors
     clearError();
 
     // Store the form data in the ref so it can be accessed by prepareSendMessagesRequest
@@ -345,527 +492,325 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
     transition: { duration: 0.18, ease: easeOut },
   };
 
-  const fadeIn = {
-    initial: { opacity: 0 },
-    animate: { opacity: 1 },
-    exit: { opacity: 0 },
-    transition: { duration: 0.2 },
-  };
-
   return (
     <div className={className}>
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl">Post Details</CardTitle>
-            <CardDescription className="text-sm">
-              AI will analyze your content and infer the optimal settings
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <Form {...form}>
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-4"
-              >
-                <FormField
-                  control={form.control}
-                  name="original_url"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-sm font-medium">
-                        URL *
-                      </FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="https://example.com/article"
-                          className="h-9"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription className="text-xs">
-                        The URL you want to create a social media post about
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="platform"
-                  render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel className="text-sm font-medium">
-                        Platform *
-                      </FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger className="h-9">
-                            <SelectValue placeholder="Select platform" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="twitter">Twitter</SelectItem>
-                          <SelectItem value="instagram">Instagram</SelectItem>
-                          <SelectItem value="facebook">Facebook</SelectItem>
-                          <SelectItem value="linkedin">LinkedIn</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="link_ownership_type"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <FormLabel className="text-sm font-medium">
-                          Content Ownership *
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div
+          className={`grid gap-6 lg:gap-8 ${
+            shouldShowProgress || generatedPost
+              ? 'lg:grid-cols-2'
+              : 'lg:grid-cols-1 lg:max-w-2xl lg:mx-auto'
+          }`}
+        >
+          <Card className="shadow-sm border border-border/50">
+            <CardContent className="space-y-5 pt-6">
+              <Form {...form}>
+                <form
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-5"
+                >
+                  <FormField
+                    control={form.control}
+                    name="original_url"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel className="text-sm font-medium text-foreground">
+                          URL *
                         </FormLabel>
-                        <div className="flex items-center space-x-2">
-                          <span
-                            className={`text-sm ${
-                              !field.value ||
-                              field.value === 'third_party_content'
-                                ? 'text-muted-foreground'
-                                : 'text-foreground'
-                            }`}
-                          >
-                            Third Party
-                          </span>
-                          <Switch
-                            checked={field.value === 'own_content'}
-                            onCheckedChange={(checked) => {
-                              field.onChange(
-                                checked ? 'own_content' : 'third_party_content'
-                              );
-                            }}
+                        <FormControl>
+                          <Input
+                            placeholder="https://example.com/article"
+                            className="h-10 transition-colors focus:ring-2 focus:ring-primary/20"
+                            {...field}
                           />
-                          <span
-                            className={`text-sm ${
-                              field.value === 'own_content'
-                                ? 'text-foreground'
-                                : 'text-muted-foreground'
-                            }`}
-                          >
-                            My Own
-                          </span>
-                        </div>
-                      </div>
-                      <FormDescription className="text-xs">
-                        Toggle to indicate whether this is your own content or
-                        third-party content
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="tone_profile"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormControl>
-                        <ToneSelector
-                          value={field.value}
-                          onChange={field.onChange}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <div className="pt-4 border-t border-border/50">
-                  <Button
-                    type="submit"
-                    className="w-full h-10"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Generating Post...
-                      </>
-                    ) : (
-                      'Generate Social Media Post'
+                        </FormControl>
+                        <FormDescription className="text-xs text-muted-foreground">
+                          The URL you want to create a social media post about
+                        </FormDescription>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
                     )}
-                  </Button>
-                </div>
-              </form>
-            </Form>
-          </CardContent>
-        </Card>
+                  />
 
-        <div className="space-y-4">
-          {/* Progress and Notifications */}
-          {(isSubmitting ||
-            (currentProgress && !generatedPost) ||
-            (notifications.length > 0 && !generatedPost)) && (
-            <motion.div
-              layout
-              initial="initial"
-              animate="animate"
-              exit="exit"
-              variants={fadeIn}
-            >
-              <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto border-slate-200/40 bg-slate-50/30 shadow-sm">
-                <CardHeader className="pb-2 bg-slate-50/50 border-b border-slate-100/60">
-                  <div className="flex items-center gap-2">
-                    <motion.div
-                      animate={{
-                        rotate: isSubmitting ? 360 : 0,
-                        scale: isSubmitting ? [1, 1.1, 1] : 1,
-                      }}
-                      transition={{
-                        rotate: {
-                          duration: 2,
-                          repeat: Infinity,
-                          ease: 'linear',
-                        },
-                        scale: { duration: 1.5, repeat: Infinity },
-                      }}
+                  <FormField
+                    control={form.control}
+                    name="platform"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel className="text-sm font-medium text-foreground">
+                          Platform *
+                        </FormLabel>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger className="h-10 transition-colors focus:ring-2 focus:ring-primary/20">
+                              <SelectValue placeholder="Select platform" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="twitter">Twitter</SelectItem>
+                            <SelectItem value="instagram">Instagram</SelectItem>
+                            <SelectItem value="facebook">Facebook</SelectItem>
+                            <SelectItem value="linkedin">LinkedIn</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="link_ownership_type"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <FormLabel className="text-sm font-medium text-foreground">
+                            Content Ownership *
+                          </FormLabel>
+                          <div className="flex items-center space-x-2">
+                            <span
+                              className={`text-sm transition-colors ${
+                                !field.value ||
+                                field.value === 'third_party_content'
+                                  ? 'text-muted-foreground'
+                                  : 'text-foreground font-medium'
+                              }`}
+                            >
+                              Third Party
+                            </span>
+                            <Switch
+                              checked={field.value === 'own_content'}
+                              onCheckedChange={(checked) => {
+                                field.onChange(
+                                  checked
+                                    ? 'own_content'
+                                    : 'third_party_content'
+                                );
+                              }}
+                              className="data-[state=checked]:bg-primary"
+                            />
+                            <span
+                              className={`text-sm transition-colors ${
+                                field.value === 'own_content'
+                                  ? 'text-foreground font-medium'
+                                  : 'text-muted-foreground'
+                              }`}
+                            >
+                              My Own
+                            </span>
+                          </div>
+                        </div>
+                        <FormDescription className="text-xs text-muted-foreground">
+                          Toggle to indicate whether this is your own content or
+                          third-party content
+                        </FormDescription>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="tone_profile"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormControl>
+                          <ToneSelector
+                            value={field.value}
+                            onChange={field.onChange}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+
+                  <div className="pt-1">
+                    <Button
+                      type="submit"
+                      className="w-full h-11 text-base font-medium transition-all hover:shadow-md"
+                      disabled={isSubmitting}
                     >
-                      <Clock className="w-4 h-4 text-slate-600" />
-                    </motion.div>
-                    <CardTitle className="text-base text-slate-800">
-                      Generation Progress
-                    </CardTitle>
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Generating Post...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          Generate Social Media Post
+                        </>
+                      )}
+                    </Button>
                   </div>
-                  <CardDescription className="text-xs text-slate-600">
-                    Real-time updates on your post generation
-                  </CardDescription>
+                </form>
+              </Form>
+            </CardContent>
+          </Card>
 
-                  {/* Subtle indeterminate progress bar during loading */}
-                  {(isSubmitting || currentProgress?.status === 'loading') &&
-                    !generatedPost && (
-                      <div
-                        className="mt-3 relative h-1 rounded bg-muted overflow-hidden"
-                        aria-hidden="true"
-                      >
-                        <motion.div
-                          className="absolute inset-y-0 left-0 w-1/3 bg-primary"
-                          animate={{ x: ['-100%', '100%'] }}
-                          transition={{
-                            repeat: Number.POSITIVE_INFINITY,
-                            duration: 1.2,
-                            ease: easeOut,
-                          }}
-                        />
-                      </div>
-                    )}
-                </CardHeader>
-
-                <CardContent className="space-y-3 pt-2">
-                  {/* Current Progress */}
-                  <AnimatePresence mode="popLayout">
-                    {currentProgress && (
-                      <motion.div
-                        key={`${currentProgress.stage}-${currentProgress.status}`}
-                        layout
-                        initial={fadeInUp.initial}
-                        animate={fadeInUp.animate}
-                        exit={fadeInUp.exit}
-                        transition={fadeInUp.transition}
-                        className="flex items-center gap-3 p-3 bg-slate-50/80 rounded-lg border border-slate-200/40"
-                        role="status"
-                        aria-live="polite"
-                      >
-                        {currentProgress.status === 'loading' && (
-                          <motion.div
-                            initial={{ scale: 0.9, opacity: 0.8 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{
-                              repeat: Number.POSITIVE_INFINITY,
-                              repeatType: 'mirror',
-                              duration: 0.8,
-                            }}
-                          >
-                            <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
-                          </motion.div>
-                        )}
-                        {currentProgress.status === 'success' && (
-                          <motion.div
-                            initial={{ scale: 0.8, rotate: -10, opacity: 0 }}
-                            animate={{ scale: 1, rotate: 0, opacity: 1 }}
-                            transition={{
-                              type: 'spring',
-                              stiffness: 300,
-                              damping: 20,
-                            }}
-                          >
-                            <CheckCircle className="w-4 h-4 text-green-500" />
-                          </motion.div>
-                        )}
-                        {currentProgress.status === 'error' && (
-                          <motion.div
-                            initial={{ scale: 0.9, opacity: 0.8 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                          >
-                            <AlertCircle className="w-4 h-4 text-red-500" />
-                          </motion.div>
-                        )}
-                        <div className="flex-1">
-                          <div className="font-medium text-sm">
-                            {currentProgress.message}
-                          </div>
-                          {currentProgress.details && (
-                            <div className="text-xs text-muted-foreground mt-0.5">
-                              {currentProgress.details}
-                            </div>
-                          )}
-                        </div>
-                        <motion.div layout>
-                          <Badge
-                            variant={
-                              currentProgress.status === 'loading'
-                                ? 'secondary'
-                                : currentProgress.status === 'success'
-                                ? 'default'
-                                : 'destructive'
-                            }
-                            className="text-xs"
-                          >
-                            {currentProgress.stage}
-                          </Badge>
-                        </motion.div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Notifications */}
-                  {notifications.length > 0 && (
-                    <div className="space-y-1.5">
-                      <AnimatePresence initial={false}>
-                        {notifications.map((notification, index) => (
-                          <motion.div
-                            key={`${notification.message}-${index}`}
-                            layout
-                            initial={{ opacity: 0, x: 12 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -12 }}
-                            transition={{
-                              type: 'spring',
-                              stiffness: 300,
-                              damping: 24,
-                            }}
-                            className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium ${
-                              notification.level === 'error'
-                                ? 'bg-red-50/90 text-red-800 border border-red-200/70 shadow-sm'
-                                : notification.level === 'warning'
-                                ? 'bg-amber-50/90 text-amber-800 border border-amber-200/70 shadow-sm'
-                                : notification.level === 'success'
-                                ? 'bg-emerald-50/90 text-emerald-800 border border-emerald-200/70 shadow-sm'
-                                : 'bg-blue-50/90 text-blue-800 border border-blue-200/70 shadow-sm'
-                            }`}
-                            role="status"
-                            aria-live="polite"
-                          >
-                            <Info className="w-3 h-3" />
-                            {notification.message}
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
-                  )}
-
-                  {/* Content Analysis Results */}
-                  <AnimatePresence>
-                    {contentAnalysis && (
-                      <motion.div
-                        key="content-analysis"
-                        layout
-                        initial={fadeInUp.initial}
-                        animate={fadeInUp.animate}
-                        exit={fadeInUp.exit}
-                        transition={fadeInUp.transition}
-                        className="p-3 bg-blue-50/90 rounded-lg border border-blue-200/70 shadow-sm"
-                      >
-                        <div className="flex items-center gap-2 mb-2">
-                          <motion.div
-                            className="w-2 h-2 bg-blue-500 rounded-full"
-                            initial={{ scale: 0.6, opacity: 0.6 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{
-                              type: 'spring',
-                              stiffness: 260,
-                              damping: 20,
-                            }}
-                          />
-                          <span className="font-medium text-blue-900 text-sm">
-                            Content Analyzed
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-xs">
-                          <div className="flex items-center gap-1">
-                            <span className="text-blue-700">Type:</span>
-                            <Badge
-                              variant="secondary"
-                              className="text-xs px-1.5 py-0.5 h-5"
-                            >
-                              {contentAnalysis.content_type}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-blue-700">Audience:</span>
-                            <Badge
-                              variant="secondary"
-                              className="text-xs px-1.5 py-0.5 h-5"
-                            >
-                              {contentAnalysis.target_audience}
-                            </Badge>
-                          </div>
-                          {contentAnalysis.call_to_action_type && (
-                            <div className="flex items-center gap-1 col-span-2">
-                              <span className="text-blue-700">CTA:</span>
-                              <Badge
-                                variant="secondary"
-                                className="text-xs px-1.5 py-0.5 h-5"
-                              >
-                                {contentAnalysis.call_to_action_type}
-                              </Badge>
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Training Posts Results */}
-                  <AnimatePresence>
-                    {trainingPosts && (
-                      <motion.div
-                        key="training-posts"
-                        layout
-                        initial={fadeInUp.initial}
-                        animate={fadeInUp.animate}
-                        exit={fadeInUp.exit}
-                        transition={fadeInUp.transition}
-                        className="p-3 bg-purple-50/90 rounded-lg border border-purple-200/70 shadow-sm"
-                      >
-                        <div className="flex items-center gap-2">
-                          <motion.div
-                            className="w-2 h-2 bg-purple-500 rounded-full"
-                            initial={{ scale: 0.6, opacity: 0.6 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            transition={{
-                              type: 'spring',
-                              stiffness: 260,
-                              damping: 20,
-                            }}
-                          />
-                          <span className="font-medium text-purple-900 text-sm">
-                            Found {trainingPosts.count} Similar Posts
-                          </span>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {error && (
-            <Card className="border-destructive/20 bg-destructive/5">
-              <CardHeader className="pb-2">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-destructive" />
-                  <CardTitle className="text-destructive text-base">
-                    Error
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-2">
-                <p className="text-destructive text-sm font-medium">
-                  {error.message}
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {generatedPost && (
-            <AnimatePresence>
-              <motion.div
-                key="generated-post"
-                layout
-                initial={fadeInUp.initial}
-                animate={fadeInUp.animate}
-                exit={fadeInUp.exit}
-                transition={fadeInUp.transition}
-              >
-                <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto border-green-200/40 bg-green-50/30 shadow-sm">
-                  <CardHeader className="pb-3 bg-green-50/50 border-b border-green-100/60">
+          {/* Second column content - either progress or generated post */}
+          {(shouldShowProgress || generatedPost || error) && (
+            <div className="space-y-4">
+              {shouldShowProgress && (
+                <Card className="shadow-sm border border-border/50">
+                  <CardHeader className="pb-4">
                     <div className="flex items-center gap-2">
-                      <motion.div
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        transition={{
-                          type: 'spring',
-                          stiffness: 300,
-                          damping: 20,
-                        }}
-                      >
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                      </motion.div>
-                      <CardTitle className="text-lg text-green-800">
-                        Post Generated
+                      <div className="p-1.5 rounded-full bg-primary/10">
+                        <Zap className="w-4 h-4 text-primary" />
+                      </div>
+                      <CardTitle className="text-base font-semibold">
+                        Generation Progress
                       </CardTitle>
                     </div>
-                    <CardDescription className="text-sm text-green-700">
-                      Ready to share on {generatedPost.platform}
+                    <CardDescription className="text-sm">
+                      AI-powered content generation in real-time
                     </CardDescription>
                   </CardHeader>
-                  <CardContent className="pt-2">
-                    <div className="p-4 bg-gradient-to-br from-slate-50 to-slate-100/80 rounded-lg border border-slate-200/60 shadow-sm">
-                      <Streamdown
-                        className="prose prose-sm max-w-none text-slate-800"
-                        parseIncompleteMarkdown={true}
-                        controls={true}
-                        isAnimating={status === 'streaming'}
-                      >
-                        {generatedPost.content}
-                      </Streamdown>
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-9 bg-white/80 border-slate-200 hover:bg-white hover:border-slate-300 text-slate-700"
-                        onClick={() => {
-                          navigator.clipboard.writeText(generatedPost.content);
-                          toast.success('Copied to clipboard');
-                        }}
-                      >
-                        Copy to Clipboard
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-9 bg-white/80 border-slate-200 hover:bg-white hover:border-slate-300 text-slate-700"
-                        onClick={resetForm}
-                      >
-                        Create Another
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="h-9 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-sm"
-                      >
-                        Post to {generatedPost.platform}
-                      </Button>
+                  <CardContent className="space-y-4">
+                    {/* Timeline of steps */}
+                    <div className="space-y-4">
+                      {stepStatuses.map((step, index) => {
+                        const stepConfig = {
+                          analyzing: {
+                            icon: <Search className="w-4 h-4" />,
+                            title: 'Analyzing Content',
+                            description:
+                              step.data && 'content_type' in step.data
+                                ? `Found ${step.data.content_type} content for ${step.data.target_audience}`
+                                : 'Extracting insights from your URL',
+                          },
+                          searching: {
+                            icon: <FileText className="w-4 h-4" />,
+                            title: 'Finding Similar Posts',
+                            description:
+                              step.data && 'count' in step.data
+                                ? `Found ${step.data.count} relevant examples`
+                                : 'Searching for similar content patterns',
+                          },
+                          generating: {
+                            icon: <Sparkles className="w-4 h-4" />,
+                            title: 'Generating Post',
+                            description:
+                              step.data && 'platform' in step.data
+                                ? `Crafted for ${step.data.platform}`
+                                : 'Creating your perfect social media post',
+                          },
+                        };
+
+                        const config =
+                          stepConfig[step.id as keyof typeof stepConfig];
+
+                        return (
+                          <TimelineStep
+                            key={step.id}
+                            icon={config.icon}
+                            title={config.title}
+                            description={config.description}
+                            status={
+                              step.status as
+                                | 'pending'
+                                | 'loading'
+                                | 'completed'
+                                | 'error'
+                            }
+                            isLast={index === stepStatuses.length - 1}
+                          />
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
-              </motion.div>
-            </AnimatePresence>
+              )}
+
+              {/* Generated Post - Only show when complete */}
+              {generatedPost && (
+                <AnimatePresence>
+                  <motion.div
+                    key="generated-post"
+                    layout
+                    initial={fadeInUp.initial}
+                    animate={fadeInUp.animate}
+                    exit={fadeInUp.exit}
+                    transition={fadeInUp.transition}
+                  >
+                    <Card className="shadow-sm border border-green-200/60 bg-green-50/20">
+                      <CardHeader className="pb-4 bg-green-50/40 border-b border-green-200/40">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 rounded-full bg-green-100">
+                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div className="flex-1">
+                            <CardTitle className="text-lg font-semibold text-green-800">
+                              Post Generated Successfully
+                            </CardTitle>
+                            <CardDescription className="text-sm text-green-700">
+                              Ready to share on {generatedPost.platform}
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-5">
+                        <div className="p-5 bg-white/90 rounded-lg border border-green-100/80 shadow-sm">
+                          <Streamdown
+                            className="prose prose-sm max-w-none text-slate-800"
+                            parseIncompleteMarkdown={true}
+                            controls={true}
+                            isAnimating={status === 'streaming'}
+                          >
+                            {generatedPost.content}
+                          </Streamdown>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <Button
+                            variant="outline"
+                            className="h-10 px-4 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 min-w-0 flex-1 sm:flex-initial"
+                            onClick={() => {
+                              navigator.clipboard.writeText(
+                                generatedPost.content
+                              );
+                              toast.success('Copied to clipboard');
+                            }}
+                          >
+                            Copy to Clipboard
+                          </Button>
+                          <Button
+                            variant="outline"
+                            className="h-10 px-4 border-slate-200 hover:bg-slate-50 min-w-0 flex-1 sm:flex-initial"
+                            onClick={resetForm}
+                          >
+                            Create Another
+                          </Button>
+                          <Button className="h-10 px-4 bg-green-600 hover:bg-green-700 text-white shadow-sm min-w-0 flex-1 sm:flex-initial">
+                            Post to {generatedPost.platform}
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </AnimatePresence>
+              )}
+
+              {/* Error State */}
+              {error && (
+                <Card className="border-destructive/50 bg-destructive/5">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-destructive" />
+                      <CardTitle className="text-base font-semibold text-destructive">
+                        Error
+                      </CardTitle>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-destructive">{error.message}</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           )}
         </div>
       </div>

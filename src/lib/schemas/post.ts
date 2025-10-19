@@ -1,13 +1,13 @@
 import * as z from 'zod/v4';
-import { POST_CONTENT_MAX_LENGTH } from '../constants';
+import { GENERATED_POST_CONTENT_MAX_LENGTH } from '../constants';
 
 export const postFormSchema = z.object({
   post_content: z
     .string()
     .min(1, 'Post content is required')
     .max(
-      POST_CONTENT_MAX_LENGTH,
-      `Post content must be less than ${POST_CONTENT_MAX_LENGTH} characters`
+      GENERATED_POST_CONTENT_MAX_LENGTH,
+      `Post content must be less than ${GENERATED_POST_CONTENT_MAX_LENGTH} characters`
     ),
   platform: z.enum(['twitter', 'instagram', 'facebook', 'linkedin'], {
     message: 'Platform is required',
@@ -164,8 +164,8 @@ export const generatedPostSchema = z.object({
     .string()
     .min(1, 'Generated post content is required')
     .max(
-      POST_CONTENT_MAX_LENGTH,
-      `Generated post content must be less than ${POST_CONTENT_MAX_LENGTH} characters`
+      GENERATED_POST_CONTENT_MAX_LENGTH,
+      `Generated post content must be less than ${GENERATED_POST_CONTENT_MAX_LENGTH} characters`
     )
     .describe('The actual generated social media post content'),
   platform_specific_tips: z

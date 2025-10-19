@@ -15,7 +15,8 @@ import {
 import * as z from 'zod';
 import { GitHub, Google } from '~/components/ui/icons';
 
-export const POST_CONTENT_MAX_LENGTH = 100000;
+export const GENERATED_POST_CONTENT_MAX_LENGTH = 280;
+export const SCRAPED_POST_CONTENT_MAX_LENGTH = 100000;
 export const TONE_WEIGHT_SIMILARITY_THRESHOLD = 50;
 
 export const authOptionsSchema = z.enum(['EMAIL', 'GOOGLE', 'GITHUB']);

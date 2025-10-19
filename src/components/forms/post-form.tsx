@@ -30,7 +30,7 @@ import {
 import { Textarea } from '~/components/ui/textarea';
 
 import * as React from 'react';
-import { POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
+import { GENERATED_POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
 import { postFormSchema, type PostFormData } from '~/lib/schemas/post';
 
 const PLATFORMS = [
@@ -162,7 +162,7 @@ export function PostForm() {
                         The main caption or content for your social media post
                       </FieldDescription>
                       <span>
-                        {postContentLength}/{POST_CONTENT_MAX_LENGTH}
+                        {postContentLength}/{GENERATED_POST_CONTENT_MAX_LENGTH}
                       </span>{' '}
                       {/* Character counter */}
                     </div>

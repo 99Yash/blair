@@ -5,11 +5,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { AnimatePresence, easeOut, motion } from 'motion/react';
 import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { Streamdown } from 'streamdown';
 import * as z from 'zod/v4';
 
 import { DefaultChatTransport } from 'ai';
 import { AlertCircle, CheckCircle, Clock, Info, Loader2 } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -206,22 +206,6 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
     </div>
   );
 }
-
-// Dynamically import LLMOutput to avoid SSR issues with Shiki
-const LLMOutput = dynamic(
-  () =>
-    import('~/components/ui/llm-output').then((mod) => ({
-      default: mod.LLMOutput,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="text-sm text-muted-foreground animate-pulse">
-        Loading renderer...
-      </div>
-    ),
-  }
-);
 
 // Form schema with tone profile selection
 const createPostFormSchema = z.object({
@@ -533,15 +517,30 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
               exit="exit"
               variants={fadeIn}
             >
-              <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
-                <CardHeader className="pb-2">
+              <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto border-slate-200/40 bg-slate-50/30 shadow-sm">
+                <CardHeader className="pb-2 bg-slate-50/50 border-b border-slate-100/60">
                   <div className="flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-muted-foreground" />
-                    <CardTitle className="text-base">
+                    <motion.div
+                      animate={{
+                        rotate: isSubmitting ? 360 : 0,
+                        scale: isSubmitting ? [1, 1.1, 1] : 1,
+                      }}
+                      transition={{
+                        rotate: {
+                          duration: 2,
+                          repeat: Infinity,
+                          ease: 'linear',
+                        },
+                        scale: { duration: 1.5, repeat: Infinity },
+                      }}
+                    >
+                      <Clock className="w-4 h-4 text-slate-600" />
+                    </motion.div>
+                    <CardTitle className="text-base text-slate-800">
                       Generation Progress
                     </CardTitle>
                   </div>
-                  <CardDescription className="text-xs text-muted-foreground">
+                  <CardDescription className="text-xs text-slate-600">
                     Real-time updates on your post generation
                   </CardDescription>
 
@@ -576,7 +575,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                         animate={fadeInUp.animate}
                         exit={fadeInUp.exit}
                         transition={fadeInUp.transition}
-                        className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+                        className="flex items-center gap-3 p-3 bg-slate-50/80 rounded-lg border border-slate-200/40"
                         role="status"
                         aria-live="polite"
                       >
@@ -658,14 +657,14 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                               stiffness: 300,
                               damping: 24,
                             }}
-                            className={`flex items-center gap-2 p-2 rounded-md text-xs ${
+                            className={`flex items-center gap-2 p-2.5 rounded-lg text-xs font-medium ${
                               notification.level === 'error'
-                                ? 'bg-red-50 text-red-700 border border-red-200'
+                                ? 'bg-red-50/90 text-red-800 border border-red-200/70 shadow-sm'
                                 : notification.level === 'warning'
-                                ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                                ? 'bg-amber-50/90 text-amber-800 border border-amber-200/70 shadow-sm'
                                 : notification.level === 'success'
-                                ? 'bg-green-50 text-green-700 border border-green-200'
-                                : 'bg-blue-50 text-blue-700 border border-blue-200'
+                                ? 'bg-emerald-50/90 text-emerald-800 border border-emerald-200/70 shadow-sm'
+                                : 'bg-blue-50/90 text-blue-800 border border-blue-200/70 shadow-sm'
                             }`}
                             role="status"
                             aria-live="polite"
@@ -688,7 +687,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                         animate={fadeInUp.animate}
                         exit={fadeInUp.exit}
                         transition={fadeInUp.transition}
-                        className="p-3 bg-blue-50/80 rounded-lg border border-blue-200/60"
+                        className="p-3 bg-blue-50/90 rounded-lg border border-blue-200/70 shadow-sm"
                       >
                         <div className="flex items-center gap-2 mb-2">
                           <motion.div
@@ -750,7 +749,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                         animate={fadeInUp.animate}
                         exit={fadeInUp.exit}
                         transition={fadeInUp.transition}
-                        className="p-3 bg-purple-50/80 rounded-lg border border-purple-200/60"
+                        className="p-3 bg-purple-50/90 rounded-lg border border-purple-200/70 shadow-sm"
                       >
                         <div className="flex items-center gap-2">
                           <motion.div
@@ -776,7 +775,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
           )}
 
           {error && (
-            <Card>
+            <Card className="border-destructive/20 bg-destructive/5">
               <CardHeader className="pb-2">
                 <div className="flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-destructive" />
@@ -786,7 +785,9 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                 </div>
               </CardHeader>
               <CardContent className="pt-2">
-                <p className="text-destructive text-sm">{error.message}</p>
+                <p className="text-destructive text-sm font-medium">
+                  {error.message}
+                </p>
               </CardContent>
             </Card>
           )}
@@ -801,31 +802,44 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                 exit={fadeInUp.exit}
                 transition={fadeInUp.transition}
               >
-                <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto">
-                  <CardHeader className="pb-3">
+                <Card className="md:max-h-[calc(100vh-12rem)] overflow-y-auto border-green-200/40 bg-green-50/30 shadow-sm">
+                  <CardHeader className="pb-3 bg-green-50/50 border-b border-green-100/60">
                     <div className="flex items-center gap-2">
-                      <CheckCircle className="w-5 h-5 text-green-500" />
-                      <CardTitle className="text-lg">Post Generated</CardTitle>
+                      <motion.div
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 300,
+                          damping: 20,
+                        }}
+                      >
+                        <CheckCircle className="w-5 h-5 text-green-600" />
+                      </motion.div>
+                      <CardTitle className="text-lg text-green-800">
+                        Post Generated
+                      </CardTitle>
                     </div>
-                    <CardDescription className="text-sm">
+                    <CardDescription className="text-sm text-green-700">
                       Ready to share on {generatedPost.platform}
                     </CardDescription>
                   </CardHeader>
                   <CardContent className="pt-2">
-                    <div className="p-4 bg-muted/50 rounded-lg border">
-                      <LLMOutput
-                        output={generatedPost.content}
-                        isStreamFinished={
-                          status !== 'streaming' && status !== 'submitted'
-                        }
-                        className="text-sm leading-relaxed"
-                      />
+                    <div className="p-4 bg-gradient-to-br from-slate-50 to-slate-100/80 rounded-lg border border-slate-200/60 shadow-sm">
+                      <Streamdown
+                        className="prose prose-sm max-w-none text-slate-800"
+                        parseIncompleteMarkdown={true}
+                        controls={true}
+                        isAnimating={status === 'streaming'}
+                      >
+                        {generatedPost.content}
+                      </Streamdown>
                     </div>
-                    <div className="mt-4 flex gap-2">
+                    <div className="mt-4 flex flex-wrap gap-2">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 bg-transparent"
+                        className="h-9 bg-white/80 border-slate-200 hover:bg-white hover:border-slate-300 text-slate-700"
                         onClick={() => {
                           navigator.clipboard.writeText(generatedPost.content);
                           toast.success('Copied to clipboard');
@@ -836,12 +850,15 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8 bg-transparent"
+                        className="h-9 bg-white/80 border-slate-200 hover:bg-white hover:border-slate-300 text-slate-700"
                         onClick={resetForm}
                       >
                         Create Another
                       </Button>
-                      <Button size="sm" className="h-8">
+                      <Button
+                        size="sm"
+                        className="h-9 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-sm"
+                      >
                         Post to {generatedPost.platform}
                       </Button>
                     </div>

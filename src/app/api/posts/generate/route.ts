@@ -28,10 +28,11 @@ import {
   StreamingPostMessage,
 } from '~/lib/types/streaming';
 
-// Create a modified schema for the generate endpoint that doesn't require generated fields
-const generatePostSchema = postFormSchema.omit({
-  post_content: true,
-  content_summary: true,
+// Simplified schema for the generate endpoint - only fields that cannot be inferred by AI
+const generatePostSchema = postFormSchema.pick({
+  original_url: true,
+  platform: true,
+  link_ownership_type: true,
 });
 
 const TONE_WEIGHT_SIMILARITY_THRESHOLD = 50;
@@ -68,16 +69,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const validatedBody = parseResult.data;
-
-  // Ensure tone_profile is always provided for the API expectations
-  const submissionData = {
-    ...validatedBody,
-    tone_profile:
-      validatedBody.tone_profile && validatedBody.tone_profile.length > 0
-        ? validatedBody.tone_profile
-        : [{ tone: 'casual', weight: 50 }],
-  };
+  const submissionData = parseResult.data;
 
   // Create a custom stream that integrates better with useChat
   // We'll send progress updates and final result
@@ -190,10 +182,8 @@ Return an object with these exact fields:
           )
         );
 
-        // We'll use analysis.tone_profile (from content analysis) if available,
-        // otherwise fallback to submissionData.tone_profile.
-        const toneProfile =
-          analysis.tone_profile ?? submissionData.tone_profile;
+        // Use the tone profile from AI analysis (LLM-inferred)
+        const toneProfile = analysis.tone_profile;
 
         // Convert toneProfile to JSON so we can use it inside SQL
         const toneProfileJson = JSON.stringify(toneProfile);
@@ -216,29 +206,25 @@ Return an object with these exact fields:
           WHERE 1=1
         `;
 
-        // Add existing exact match filters as additional criteria
+        // Add existing exact match filters as additional criteria using analysis results
         if (submissionData.platform) {
           toneSimilaritySql.append(
             sql` AND tp.platforms = ${submissionData.platform}`
           );
         }
-        if (submissionData.content_type || analysis.content_type) {
+        if (analysis.content_type) {
           toneSimilaritySql.append(
-            sql` AND tp.content_type = ${
-              submissionData.content_type ?? analysis.content_type
-            }`
+            sql` AND tp.content_type = ${analysis.content_type}`
           );
         }
-        if (submissionData.target_audience || analysis.target_audience) {
+        if (analysis.target_audience) {
           toneSimilaritySql.append(
-            sql` AND tp.target_audience = ${
-              submissionData.target_audience ?? analysis.target_audience
-            }`
+            sql` AND tp.target_audience = ${analysis.target_audience}`
           );
         }
-        if (submissionData.call_to_action_type) {
+        if (analysis.call_to_action_type) {
           toneSimilaritySql.append(
-            sql` AND tp.call_to_action_type = ${submissionData.call_to_action_type}`
+            sql` AND tp.call_to_action_type = ${analysis.call_to_action_type}`
           );
         }
 
@@ -295,18 +281,14 @@ ${post.content}`
         const prompt = createPrompt({
           taskContext: `You are a professional social media copywriter generating posts for multiple platforms.`,
           toneContext: `Match the following tone profile (weight out of 100):
-${submissionData.tone_profile.map((t) => `${t.tone}: ${t.weight}`).join(', ')}`,
+${toneProfile.map((t) => `${t.tone}: ${t.weight}`).join(', ')}`,
           backgroundData: `Link to promote: ${submissionData.original_url}
 Link ownership: ${submissionData.link_ownership_type}
 Content summary: ${analysis.content_summary}
 Content type: ${analysis.content_type}
 Target audience: ${analysis.target_audience}
-Call to action: ${submissionData.call_to_action_type || 'any'}
-Sales pitch strength: ${
-            submissionData.sales_pitch_strength != null
-              ? Math.round(submissionData.sales_pitch_strength / 10)
-              : 'medium'
-          }/10`,
+Call to action: ${analysis.call_to_action_type || 'any'}
+Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           detailedTaskInstructions: `Follow best practices for ${submissionData.platform}. Avoid emojis. Keep it engaging. `,
           examples,
           finalRequest: `Write a ${submissionData.platform} post that effectively promotes the link above, in the specified tone and voice.`,
@@ -381,10 +363,9 @@ Sales pitch strength: ${
           original_url: submissionData.original_url,
           post_content: generatedContent,
           platform: submissionData.platform,
-          content_type: submissionData.content_type ?? analysis.content_type,
+          content_type: analysis.content_type,
           content_summary: analysis.content_summary,
-          target_audience:
-            submissionData.target_audience ?? analysis.target_audience,
+          target_audience: analysis.target_audience,
           link_ownership_type: submissionData.link_ownership_type,
           user_id: session.user.id,
         };

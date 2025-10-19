@@ -5,14 +5,18 @@ import {
   generateObject,
   streamText,
 } from 'ai';
-import { headers } from 'next/headers';
-
 import { sql } from 'drizzle-orm';
+import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
 import { createPrompt } from '~/lib/ai/utils';
 import { auth } from '~/lib/auth/server';
+import {
+  PLATFORM_GENERATION_CONFIG,
+  TONE_WEIGHT_SIMILARITY_THRESHOLD,
+} from '~/lib/constants';
+import { AppError, createErrorResponse } from '~/lib/errors';
 import { firecrawl } from '~/lib/firecrawl';
 import {
   postFormSchema,
@@ -27,12 +31,46 @@ import {
   PROGRESS_STAGES,
   StreamingPostMessage,
 } from '~/lib/types/streaming';
+import {
+  createAuthError,
+  createConflictError,
+  createExternalServiceError,
+  createValidationError,
+} from '~/lib/utils';
 
-// Create a modified schema for the generate endpoint that doesn't require generated fields
-const generatePostSchema = postFormSchema.omit({
-  post_content: true,
-  content_summary: true,
+// Schema for the generate endpoint - includes tone profile from user
+const generatePostSchema = postFormSchema.pick({
+  original_url: true,
+  platform: true,
+  link_ownership_type: true,
+  tone_profile: true,
 });
+
+/**
+ * Formats platform-specific instructions from the configuration
+ */
+function getPlatformInstructions(
+  platform: keyof typeof PLATFORM_GENERATION_CONFIG
+): string {
+  const config = PLATFORM_GENERATION_CONFIG[platform];
+
+  const bestPracticesList = config.bestPractices
+    .map((practice) => `  • ${practice}`)
+    .join('\n');
+
+  return `Platform: ${platform.charAt(0).toUpperCase() + platform.slice(1)}
+
+Best Practices:
+${bestPracticesList}
+
+Formatting Guidelines:
+  • Character limit: ${config.characterLimit}
+  • Preferred length: ${config.formatting.preferredLength}
+  • Hashtag placement: ${config.formatting.hashtagPlacement}
+  • URL handling: ${config.formatting.urlHandling}
+
+Use the specified tone profile weights to guide your writing style.`;
+}
 
 export async function POST(request: Request) {
   console.log('=== POST /api/posts/generate (Streaming) ===');
@@ -42,40 +80,34 @@ export async function POST(request: Request) {
   });
 
   if (!session?.user) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const error = createAuthError();
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
   }
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { message: 'Invalid JSON in request body' },
-      { status: 400 }
-    );
+    const error = new AppError({
+      code: 'BAD_REQUEST',
+      message: 'Invalid JSON in request body',
+    });
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
   }
 
   const parseResult = generatePostSchema.safeParse(body);
   if (!parseResult.success) {
-    return NextResponse.json(
-      {
-        message: 'Validation error',
-        errors: parseResult.error.issues.map((issue) => issue.message),
-      },
-      { status: 400 }
-    );
+    const error = createValidationError(parseResult.error.issues);
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
   }
 
-  const validatedBody = parseResult.data;
-
-  // Ensure tone_profile is always provided for the API expectations
-  const submissionData = {
-    ...validatedBody,
-    tone_profile:
-      validatedBody.tone_profile && validatedBody.tone_profile.length > 0
-        ? validatedBody.tone_profile
-        : [{ tone: 'casual' as const, weight: 50 }],
-  };
+  const submissionData = parseResult.data;
 
   // Create a custom stream that integrates better with useChat
   // We'll send progress updates and final result
@@ -132,30 +164,23 @@ export async function POST(request: Request) {
         const { object: analysis } = await generateObject({
           model: openai('gpt-4o-mini'),
           schema: scrapedContentAnalysisSchema,
-          prompt: `Analyze the following scraped content and provide the analysis in the exact format specified by the schema. Return only the object data that matches the schema properties:
-
-${slicedContent}
-
-Return an object with these exact fields:
-- content_summary: string (summary of the content)
-- content_type: one of the enum values
-- target_audience: one of the enum values
-- tone_profile: array of tone objects with tone and weight
-- call_to_action_type: one of the enum values
-- sales_pitch_strength: number 0-100`,
+          prompt: `Analyze the following scraped content:
+${slicedContent}`,
         });
 
         if (!analysis || !analysis.content_summary) {
+          const error = createExternalServiceError(
+            'OpenAI',
+            'Failed to analyze website content'
+          );
           writer.write(
             createProgressData(
               PROGRESS_STAGES.ANALYZING,
-              'Failed to analyze website content',
+              error.message,
               'error'
             )
           );
-          writer.write(
-            createNotificationData('Failed to analyze website content', 'error')
-          );
+          writer.write(createNotificationData(error.message, 'error'));
           return;
         }
 
@@ -173,7 +198,6 @@ Return an object with these exact fields:
             content_type: analysis.content_type,
             target_audience: analysis.target_audience,
             tone_profile: analysis.tone_profile,
-            call_to_action_type: analysis.call_to_action_type,
             sales_pitch_strength: analysis.sales_pitch_strength,
           })
         );
@@ -188,10 +212,8 @@ Return an object with these exact fields:
           )
         );
 
-        // We'll use analysis.tone_profile (from content analysis) if available,
-        // otherwise fallback to submissionData.tone_profile.
-        const toneProfile =
-          analysis.tone_profile ?? submissionData.tone_profile;
+        // Use the user-provided tone profile
+        const toneProfile = submissionData.tone_profile;
 
         // Convert toneProfile to JSON so we can use it inside SQL
         const toneProfileJson = JSON.stringify(toneProfile);
@@ -202,7 +224,9 @@ Return an object with these exact fields:
             (
               SELECT SUM(
                 CASE
-                  WHEN ABS((tone_elem->>'weight')::int - ut.weight) <= 10 THEN 1
+                  WHEN ABS((tone_elem->>'weight')::int - ut.weight) <= ${sql.param(
+                    TONE_WEIGHT_SIMILARITY_THRESHOLD
+                  )} THEN 1
                   ELSE 0
                 END
               )
@@ -214,29 +238,20 @@ Return an object with these exact fields:
           WHERE 1=1
         `;
 
-        // Add existing exact match filters as additional criteria
+        // Add existing exact match filters as additional criteria using analysis results
         if (submissionData.platform) {
           toneSimilaritySql.append(
             sql` AND tp.platforms = ${submissionData.platform}`
           );
         }
-        if (submissionData.content_type || analysis.content_type) {
+        if (analysis.content_type) {
           toneSimilaritySql.append(
-            sql` AND tp.content_type = ${
-              submissionData.content_type ?? analysis.content_type
-            }`
+            sql` AND tp.content_type = ${analysis.content_type}`
           );
         }
-        if (submissionData.target_audience || analysis.target_audience) {
+        if (analysis.target_audience) {
           toneSimilaritySql.append(
-            sql` AND tp.target_audience = ${
-              submissionData.target_audience ?? analysis.target_audience
-            }`
-          );
-        }
-        if (submissionData.call_to_action_type) {
-          toneSimilaritySql.append(
-            sql` AND tp.call_to_action_type = ${submissionData.call_to_action_type}`
+            sql` AND tp.target_audience = ${analysis.target_audience}`
           );
         }
 
@@ -293,19 +308,16 @@ ${post.content}`
         const prompt = createPrompt({
           taskContext: `You are a professional social media copywriter generating posts for multiple platforms.`,
           toneContext: `Match the following tone profile (weight out of 100):
-${submissionData.tone_profile.map((t) => `${t.tone}: ${t.weight}`).join(', ')}`,
+${toneProfile.map((t) => `${t.tone}: ${t.weight}`).join(', ')}`,
           backgroundData: `Link to promote: ${submissionData.original_url}
 Link ownership: ${submissionData.link_ownership_type}
 Content summary: ${analysis.content_summary}
 Content type: ${analysis.content_type}
 Target audience: ${analysis.target_audience}
-Call to action: ${submissionData.call_to_action_type || 'any'}
-Sales pitch strength: ${
-            submissionData.sales_pitch_strength != null
-              ? Math.round(submissionData.sales_pitch_strength / 10)
-              : 'medium'
-          }/10`,
-          detailedTaskInstructions: `Follow best practices for ${submissionData.platform}. Avoid redundant emojis and keep it engaging. Use platform-appropriate phrasing.`,
+Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
+          detailedTaskInstructions: getPlatformInstructions(
+            submissionData.platform
+          ),
           examples,
           finalRequest: `Write a ${submissionData.platform} post that effectively promotes the link above, in the specified tone and voice.`,
           outputFormatting: `Reply with the post content only, no explanations.`,
@@ -379,10 +391,9 @@ Sales pitch strength: ${
           original_url: submissionData.original_url,
           post_content: generatedContent,
           platform: submissionData.platform,
-          content_type: submissionData.content_type ?? analysis.content_type,
+          content_type: analysis.content_type,
           content_summary: analysis.content_summary,
-          target_audience:
-            submissionData.target_audience ?? analysis.target_audience,
+          target_audience: analysis.target_audience,
           link_ownership_type: submissionData.link_ownership_type,
           user_id: session.user.id,
         };
@@ -408,26 +419,29 @@ Sales pitch strength: ${
             )
           );
         } catch (error) {
-          // Narrow the unknown error to access optional `code` and `message` properties safely
+          // Handle unique constraint violation
           const dbError =
             typeof error === 'object' && error !== null
               ? (error as { code?: string; message?: string })
               : undefined;
 
-          // Handle unique constraint violation
           if (
             dbError?.code === '23505' ||
             dbError?.message?.includes('unique constraint')
           ) {
+            const conflictError = createConflictError(
+              'You have already added this URL',
+              error
+            );
             writer.write(
               createProgressData(
                 PROGRESS_STAGES.SAVING,
-                'URL already exists for this user',
+                conflictError.message,
                 'error'
               )
             );
             writer.write(
-              createNotificationData('You have already added this URL', 'error')
+              createNotificationData(conflictError.message, 'error')
             );
             return;
           }
@@ -437,16 +451,32 @@ Sales pitch strength: ${
         }
       } catch (err) {
         console.error('ERROR: Exception during post generation:', err);
-        writer.write(
-          createProgressData(
-            currentStage,
-            'An error occurred during generation',
-            'error'
-          )
-        );
-        writer.write(
-          createNotificationData('Internal server error occurred', 'error')
-        );
+
+        // Determine error type and create appropriate error message
+        let errorMessage = 'Internal server error occurred';
+        if (err instanceof Error) {
+          if (
+            err.message.includes('timeout') ||
+            err.message.includes('ETIMEDOUT')
+          ) {
+            errorMessage = 'Request timed out. Please try again.';
+          } else if (
+            err.message.includes('network') ||
+            err.message.includes('ECONNREFUSED')
+          ) {
+            errorMessage =
+              'Network error occurred. Please check your connection and try again.';
+          } else if (
+            err.message.includes('rate limit') ||
+            err.message.includes('429')
+          ) {
+            errorMessage =
+              'Rate limit exceeded. Please wait a moment and try again.';
+          }
+        }
+
+        writer.write(createProgressData(currentStage, errorMessage, 'error'));
+        writer.write(createNotificationData(errorMessage, 'error'));
       }
     },
   });

@@ -4,7 +4,6 @@ import { and, eq, or, sql } from 'drizzle-orm';
 import * as z from 'zod/v4';
 import { db } from '~/db';
 import {
-  ctaTypeEnum,
   linkOwnershipTypeEnum,
   linkTypeEnum,
   platforms,
@@ -43,7 +42,6 @@ export const scrapeWebsiteTool = tool({
       content_type: analysis.content_type,
       target_audience: analysis.target_audience,
       tone_profile: analysis.tone_profile,
-      call_to_action_type: analysis.call_to_action_type,
       sales_pitch_strength: analysis.sales_pitch_strength,
     };
   },
@@ -79,12 +77,6 @@ export const searchTrainingPostsTool = tool({
       .describe(
         'The primary target audience for the teased content (e.g., "developers", "entrepreneurs").'
       ),
-    call_to_action_type: z
-      .enum(ctaTypeEnum.enumValues)
-      .optional()
-      .describe(
-        'The type of action the teaser aims to prompt (e.g., "learn_more", "sign_up").'
-      ),
     min_sales_pitch_strength: z
       .number()
       .int()
@@ -119,7 +111,6 @@ export const searchTrainingPostsTool = tool({
     platform,
     link_ownership_type,
     target_audience,
-    call_to_action_type,
     min_sales_pitch_strength,
     max_sales_pitch_strength,
     desired_tone,
@@ -143,11 +134,6 @@ export const searchTrainingPostsTool = tool({
       if (target_audience) {
         exactMatchClauses.push(
           eq(training_posts.target_audience, target_audience)
-        );
-      }
-      if (call_to_action_type) {
-        exactMatchClauses.push(
-          eq(training_posts.call_to_action_type, call_to_action_type)
         );
       }
 
@@ -269,7 +255,6 @@ export const searchTrainingPostsTool = tool({
         content_type: post.content_type,
         link_ownership_type: post.link_ownership_type,
         target_audience: post.target_audience,
-        call_to_action_type: post.call_to_action_type,
         sales_pitch_strength: post.sales_pitch_strength,
         tone_profile: post.tone_profile,
       }));

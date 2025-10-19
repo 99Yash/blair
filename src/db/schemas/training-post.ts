@@ -56,18 +56,6 @@ export const targetAudienceEnum = pgEnum('target_audience', [
   'other',
 ]);
 
-export const ctaTypeEnum = pgEnum('cta_type', [
-  'learn_more',
-  'sign_up',
-  'buy_now',
-  'read_article',
-  'watch_video',
-  'download',
-  'join_community',
-  'poll_question',
-  'other',
-]);
-
 export const training_posts = pgTable(
   'training_posts',
   {
@@ -79,7 +67,6 @@ export const training_posts = pgTable(
     content_type: linkTypeEnum('content_type').notNull(),
     original_url: text('original_url').notNull(),
     content_summary: text('content_summary').notNull(),
-    call_to_action_type: ctaTypeEnum('call_to_action_type').notNull(),
     sales_pitch_strength: integer('sales_pitch_strength')
       .notNull()
       .default(100),
@@ -104,13 +91,11 @@ export const training_posts = pgTable(
     // GIN is the recommended access method for jsonb containment & key lookups.
     index('tone_profile_gin').using('gin', table.tone_profile),
     // Composite BTREE index to satisfy the additional equality filters applied in
-    // the similarity query (platform, content_type, target_audience,
-    // call_to_action_type)
+    // the similarity query (platform, content_type, target_audience)
     index('training_posts_filter_idx').on(
       table.platform,
       table.content_type,
-      table.target_audience,
-      table.call_to_action_type
+      table.target_audience
     ),
   ]
 );

@@ -58,6 +58,47 @@
     var(--ring) 60%,
     transparent
   );
+
+  /* Success/Done state color variations for cards and UI elements */
+  --success-card-bg: color-mix(in srgb, var(--status-done), var(--card) 95%);
+  --success-card-border: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--card) 20%
+  );
+  --success-header-bg: color-mix(in srgb, var(--status-done), var(--card) 90%);
+  --success-icon-bg: color-mix(in srgb, var(--status-done), var(--muted) 60%);
+  --success-title: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--foreground) 20%
+  );
+  --success-description: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--foreground) 30%
+  );
+  --success-border: color-mix(in srgb, var(--status-done), var(--border) 30%);
+  --success-border-hover: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--border) 50%
+  );
+  --success-button-border: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--border) 40%
+  );
+  --success-button-text: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--foreground) 30%
+  );
+  --success-button-bg-hover: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--muted) 90%
+  );
 }
 
 @theme inline {
@@ -116,6 +157,20 @@
   --scrollbar-track-color: var(--background);
   --scrollbar-thumb-color: var(--border);
   --scrollbar-thumb-hover-color: var(--ring);
+
+  /* Success/Done state color variations - Tailwind classes */
+  --color-success-card-bg: var(--success-card-bg);
+  --color-success-card-border: var(--success-card-border);
+  --color-success-header-bg: var(--success-header-bg);
+  --color-success-icon-bg: var(--success-icon-bg);
+  --color-success-title: var(--success-title);
+  --color-success-description: var(--success-description);
+  --color-success-border: var(--success-border);
+  --color-success-border-hover: var(--success-border-hover);
+  --color-success-button-border: var(--success-button-border);
+  --color-success-button-text: var(--success-button-text);
+  --color-success-button-bg-hover: var(--success-button-bg-hover);
+
   --animate-caret-blink: caret-blink 1.25s ease-out infinite;
   --animate-spinner: spinner 1.25s ease-out infinite;
   @keyframes caret-blink {
@@ -205,6 +260,47 @@ body {
     in srgb,
     var(--ring) 60%,
     transparent
+  );
+
+  /* Success/Done state color variations for cards and UI elements */
+  --success-card-bg: color-mix(in srgb, var(--status-done), var(--card) 95%);
+  --success-card-border: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--card) 20%
+  );
+  --success-header-bg: color-mix(in srgb, var(--status-done), var(--card) 90%);
+  --success-icon-bg: color-mix(in srgb, var(--status-done), var(--muted) 60%);
+  --success-title: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--foreground) 20%
+  );
+  --success-description: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--foreground) 30%
+  );
+  --success-border: color-mix(in srgb, var(--status-done), var(--border) 30%);
+  --success-border-hover: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--border) 50%
+  );
+  --success-button-border: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--border) 40%
+  );
+  --success-button-text: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--foreground) 30%
+  );
+  --success-button-bg-hover: color-mix(
+    in srgb,
+    var(--status-done),
+    var(--muted) 90%
   );
 }
 

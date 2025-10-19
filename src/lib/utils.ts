@@ -9,6 +9,7 @@ import {
   SessionStorageKey,
   SessionStorageValue,
 } from './constants';
+import { AppError } from './errors';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -16,9 +17,14 @@ export function cn(...inputs: ClassValue[]) {
 
 export const unknownError = 'Something went wrong. Please try again.';
 
-export function getErrorMessage(err: unknown) {
+/**
+ * Enhanced error message extraction that handles AppError instances
+ */
+export function getErrorMessage(err: unknown): string {
   if (typeof err === 'string') {
     return err;
+  } else if (err instanceof AppError) {
+    return err.message;
   } else if (err instanceof z.ZodError) {
     return err.issues.map((e) => e.message).join(', ') ?? unknownError;
   } else if (err instanceof Error) {
@@ -26,6 +32,70 @@ export function getErrorMessage(err: unknown) {
   } else {
     return unknownError;
   }
+}
+
+/**
+ * Creates a standardized validation error from Zod issues
+ */
+export function createValidationError(issues: z.ZodIssue[]): AppError {
+  const message = issues.map((issue) => issue.message).join(', ');
+  return new AppError({
+    code: 'UNPROCESSABLE_CONTENT',
+    message: `Validation error: ${message}`,
+  });
+}
+
+/**
+ * Creates a standardized database error
+ */
+export function createDatabaseError(
+  message?: string,
+  cause?: unknown
+): AppError {
+  return new AppError({
+    code: 'INTERNAL_SERVER_ERROR',
+    message: message ?? 'Database operation failed',
+    cause,
+  });
+}
+
+/**
+ * Creates a standardized authentication error
+ */
+export function createAuthError(message?: string): AppError {
+  return new AppError({
+    code: 'UNAUTHORIZED',
+    message: message ?? 'Authentication required',
+  });
+}
+
+/**
+ * Creates a standardized conflict error (e.g., duplicate data)
+ */
+export function createConflictError(
+  message?: string,
+  cause?: unknown
+): AppError {
+  return new AppError({
+    code: 'CONFLICT',
+    message: message ?? 'Resource already exists',
+    cause,
+  });
+}
+
+/**
+ * Creates a standardized external service error (e.g., scraping, AI service)
+ */
+export function createExternalServiceError(
+  service: string,
+  message?: string,
+  cause?: unknown
+): AppError {
+  return new AppError({
+    code: 'INTERNAL_SERVER_ERROR',
+    message: message ?? `${service} service unavailable`,
+    cause,
+  });
 }
 
 export function setLocalStorageItem<K extends LocalStorageKey>(

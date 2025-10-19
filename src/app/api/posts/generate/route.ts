@@ -5,14 +5,14 @@ import {
   generateObject,
   streamText,
 } from 'ai';
-import { headers } from 'next/headers';
-
 import { sql } from 'drizzle-orm';
+import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
 import { createPrompt } from '~/lib/ai/utils';
 import { auth } from '~/lib/auth/server';
+import { TONE_WEIGHT_SIMILARITY_THRESHOLD } from '~/lib/constants';
 import { firecrawl } from '~/lib/firecrawl';
 import {
   postFormSchema,
@@ -35,8 +35,6 @@ const generatePostSchema = postFormSchema.pick({
   link_ownership_type: true,
   tone_profile: true,
 });
-
-const TONE_WEIGHT_SIMILARITY_THRESHOLD = 50;
 
 export async function POST(request: Request) {
   console.log('=== POST /api/posts/generate (Streaming) ===');

@@ -444,13 +444,23 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
         },
       }),
       onData: (dataPart) => {
-        // Only handle transient notifications - all other data parts are persisted in messages
+        // Handle transient notifications with toast feedback
         if (dataPart.type === 'data-notification') {
-          // Notifications are handled in the UI but not stored in state
+          const notification = dataPart.data;
+          if (notification.level === 'error') {
+            toast.error(notification.message);
+          } else if (notification.level === 'success') {
+            toast.success(notification.message);
+          } else if (notification.level === 'warning') {
+            toast.warning(notification.message);
+          } else if (notification.level === 'info') {
+            toast.info(notification.message);
+          }
         }
       },
       onError: (error) => {
         console.error('Chat error:', error);
+        toast.error(error.message || 'An unexpected error occurred');
       },
     });
 
@@ -471,31 +481,62 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
   const generatedPost =
     generatedPostParts?.[generatedPostParts.length - 1]?.data;
 
+  // Extract progress messages to determine step statuses and errors
+  const progressMessages = messages
+    .flatMap((message) => message.parts)
+    .filter((part) => part.type === 'data-progress')
+    .map((part) => part.data);
+
   // Extract notifications from messages for display
   const notifications = messages
     .flatMap((message) => message.parts)
     .filter((part) => part.type === 'data-notification')
     .map((part) => part.data);
 
+  // Find error notifications to display
+  const errorNotifications = notifications.filter((n) => n.level === 'error');
+  const hasApplicationError = errorNotifications.length > 0;
+
   /**
    * Determines the status of each generation step based on current state and data availability.
    *
-   * The function implements a state machine where each step transitions from 'pending' → 'loading' → 'completed'
-   * based on the availability of data from the previous step and current submission status.
+   * The function implements a state machine where each step transitions from 'pending' → 'loading' → 'completed' → 'error'
+   * based on the availability of data from the previous step, current submission status, and error progress messages.
    *
    * @returns Array of step status objects with id, status, and data properties
    */
   const getStepStatuses = () => {
     // Early return if no activity - prevents showing empty progress when form is idle
-    if (!isSubmitting && !contentAnalysis && !trainingPosts && !generatedPost) {
+    if (
+      !isSubmitting &&
+      !contentAnalysis &&
+      !trainingPosts &&
+      !generatedPost &&
+      progressMessages.length === 0
+    ) {
       return [];
     }
+
+    // Helper to check if a stage has an error progress message
+    const hasStageError = (stageId: string) => {
+      const stageMapping: Record<string, string[]> = {
+        analyzing: ['scraping', 'analyzing'],
+        searching: ['searching'],
+        generating: ['generating', 'saving'],
+      };
+      const stages = stageMapping[stageId] || [];
+      return progressMessages.some(
+        (msg) => stages.includes(msg.stage) && msg.status === 'error'
+      );
+    };
 
     const steps = [
       {
         id: 'analyzing',
-        // Status logic: completed if data exists, loading if submitting, otherwise pending
-        status: contentAnalysis
+        // Status logic: error if stage has error, completed if data exists, loading if submitting, otherwise pending
+        status: hasStageError('analyzing')
+          ? 'error'
+          : contentAnalysis
           ? 'completed'
           : isSubmitting
           ? 'loading'
@@ -504,8 +545,10 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
       },
       {
         id: 'searching',
-        // Status logic: completed if data exists, loading if previous step completed and still submitting, otherwise pending
-        status: trainingPosts
+        // Status logic: error if stage has error, completed if data exists, loading if previous step completed and still submitting, otherwise pending
+        status: hasStageError('searching')
+          ? 'error'
+          : trainingPosts
           ? 'completed'
           : contentAnalysis && isSubmitting
           ? 'loading'
@@ -514,8 +557,10 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
       },
       {
         id: 'generating',
-        // Status logic: completed if data exists, loading if previous step completed and still submitting, otherwise pending
-        status: generatedPost
+        // Status logic: error if stage has error, completed if data exists, loading if previous step completed and still submitting, otherwise pending
+        status: hasStageError('generating')
+          ? 'error'
+          : generatedPost
           ? 'completed'
           : trainingPosts && isSubmitting
           ? 'loading'
@@ -530,7 +575,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
 
   // Check if progress section should be shown
   const shouldShowProgress =
-    isSubmitting || messages.length > 0 || error || notifications.length > 0;
+    isSubmitting || messages.length > 0 || error || hasApplicationError;
 
   const form = useForm<CreatePostFormData>({
     resolver: zodResolver(createPostFormSchema),
@@ -718,7 +763,10 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
           </Card>
 
           {/* Second column content - either progress or generated post */}
-          {(shouldShowProgress || generatedPost || error) && (
+          {(shouldShowProgress ||
+            generatedPost ||
+            error ||
+            hasApplicationError) && (
             <div className="space-y-4">
               {shouldShowProgress && (
                 <Card className="shadow-sm border border-border/50">
@@ -765,8 +813,47 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                 </Card>
               )}
 
-              {/* Generated Post - Only show when complete */}
-              {generatedPost && (
+              {/* Error Notifications */}
+              {hasApplicationError &&
+                errorNotifications.map((notification, index) => (
+                  <AnimatePresence key={`error-${index}`}>
+                    <motion.div
+                      initial={fadeInUp.initial}
+                      animate={fadeInUp.animate}
+                      exit={fadeInUp.exit}
+                      transition={fadeInUp.transition}
+                    >
+                      <Card className="border-destructive/50 bg-destructive/5">
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-destructive" />
+                            <CardTitle className="text-base font-semibold text-destructive">
+                              Error
+                            </CardTitle>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-sm text-destructive">
+                            {notification.message}
+                          </p>
+                          <div className="mt-4">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={resetForm}
+                              className="h-9"
+                            >
+                              Try Again
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  </AnimatePresence>
+                ))}
+
+              {/* Generated Post - Only show when complete and no errors */}
+              {generatedPost && !hasApplicationError && (
                 <AnimatePresence>
                   <motion.div
                     key="generated-post"
@@ -830,21 +917,40 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                 </AnimatePresence>
               )}
 
-              {/* Error State */}
-              {error && (
-                <Card className="border-destructive/50 bg-destructive/5">
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center gap-2">
-                      <AlertCircle className="w-4 h-4 text-destructive" />
-                      <CardTitle className="text-base font-semibold text-destructive">
-                        Error
-                      </CardTitle>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-sm text-destructive">{error.message}</p>
-                  </CardContent>
-                </Card>
+              {/* Transport/Network Error State (separate from application errors) */}
+              {error && !hasApplicationError && (
+                <AnimatePresence>
+                  <motion.div
+                    initial={fadeInUp.initial}
+                    animate={fadeInUp.animate}
+                    exit={fadeInUp.exit}
+                    transition={fadeInUp.transition}
+                  >
+                    <Card className="border-destructive/50 bg-destructive/5">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-destructive" />
+                          <CardTitle className="text-base font-semibold text-destructive">
+                            Connection Error
+                          </CardTitle>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-sm text-destructive mb-4">
+                          {error.message}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={resetForm}
+                          className="h-9"
+                        >
+                          Try Again
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  </motion.div>
+                </AnimatePresence>
               )}
             </div>
           )}

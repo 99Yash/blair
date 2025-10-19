@@ -106,7 +106,7 @@ export async function POST(request: Request) {
       platform: validatedBody.platform,
       content_type: analysis.content_type,
       content_summary: analysis.content_summary,
-      call_to_action_type: analysis.call_to_action_type ?? 'other',
+      call_to_action_type: 'other',
       sales_pitch_strength: analysis.sales_pitch_strength,
       tone_profile: analysis.tone_profile,
       link_ownership_type: validatedBody.link_ownership_type,

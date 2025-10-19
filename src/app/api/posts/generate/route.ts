@@ -305,7 +305,7 @@ Sales pitch strength: ${
               ? Math.round(submissionData.sales_pitch_strength / 10)
               : 'medium'
           }/10`,
-          detailedTaskInstructions: `Follow best practices for ${submissionData.platform}. Avoid redundant emojis and keep it engaging. Use platform-appropriate phrasing.`,
+          detailedTaskInstructions: `Follow best practices for ${submissionData.platform}. Avoid emojis. Keep it engaging. `,
           examples,
           finalRequest: `Write a ${submissionData.platform} post that effectively promotes the link above, in the specified tone and voice.`,
           outputFormatting: `Reply with the post content only, no explanations.`,

@@ -417,8 +417,8 @@ const createPostFormSchema = z.object({
     )
     .min(1, 'Please select at least one tone')
     .refine(
-      (tones) => tones.reduce((sum, tone) => sum + tone.weight, 0) <= 100,
-      'Total tone weights cannot exceed 100'
+      (tones) => tones.reduce((sum, tone) => sum + tone.weight, 0) === 100,
+      'Total tone weights must sum to exactly 100'
     ),
 });
 

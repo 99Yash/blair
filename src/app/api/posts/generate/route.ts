@@ -34,6 +34,8 @@ const generatePostSchema = postFormSchema.omit({
   content_summary: true,
 });
 
+const TONE_WEIGHT_SIMILARITY_THRESHOLD = 50;
+
 export async function POST(request: Request) {
   console.log('=== POST /api/posts/generate (Streaming) ===');
 
@@ -202,7 +204,7 @@ Return an object with these exact fields:
             (
               SELECT SUM(
                 CASE
-                  WHEN ABS((tone_elem->>'weight')::int - ut.weight) <= 10 THEN 1
+                  WHEN ABS((tone_elem->>'weight')::int - ut.weight) <= ${TONE_WEIGHT_SIMILARITY_THRESHOLD} THEN 1
                   ELSE 0
                 END
               )

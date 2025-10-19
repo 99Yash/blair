@@ -229,13 +229,13 @@ export default function CreatePage() {
     resolver: zodResolver(createPostFormSchema),
     defaultValues: {
       original_url: '',
-      platform: undefined,
-      link_ownership_type: undefined,
+      platform: 'twitter',
+      link_ownership_type: 'third_party_content',
       content_type: undefined,
-      target_audience: undefined,
+      target_audience: 'general_public',
       tone_profile: [],
-      call_to_action_type: undefined,
-      sales_pitch_strength: 50,
+      call_to_action_type: 'learn_more',
+      sales_pitch_strength: 10,
     },
   });
 

@@ -112,8 +112,8 @@ export function PostForm() {
         { tone: 'professional' as const, weight: 50 },
         { tone: 'inspirational' as const, weight: 50 },
       ], // Start with two for better UX
-      link_ownership_type: 'own_content' as const,
-      target_audience: 'general_public' as const,
+      link_ownership_type: 'own_content',
+      target_audience: 'general_public',
     },
   });
 

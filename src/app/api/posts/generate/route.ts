@@ -74,7 +74,7 @@ export async function POST(request: Request) {
     tone_profile:
       validatedBody.tone_profile && validatedBody.tone_profile.length > 0
         ? validatedBody.tone_profile
-        : [{ tone: 'casual' as const, weight: 50 }],
+        : [{ tone: 'casual', weight: 50 }],
   };
 
   // Create a custom stream that integrates better with useChat

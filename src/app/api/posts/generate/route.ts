@@ -196,7 +196,7 @@ ${slicedContent}`,
             (
               SELECT SUM(
                 CASE
-                  WHEN ABS((tone_elem->>'weight')::int - ut.weight) <= ${TONE_WEIGHT_SIMILARITY_THRESHOLD} THEN 1
+                  WHEN ABS((tone_elem->>'weight')::int - ut.weight) <= ${sql.param(TONE_WEIGHT_SIMILARITY_THRESHOLD)} THEN 1
                   ELSE 0
                 END
               )

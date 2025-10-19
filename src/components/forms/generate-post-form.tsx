@@ -776,26 +776,26 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                     exit={fadeInUp.exit}
                     transition={fadeInUp.transition}
                   >
-                    <Card className="shadow-sm border border-[color-mix(in_srgb,var(--status-done),var(--card)_20%)] bg-[color-mix(in_srgb,var(--status-done),var(--card)_95%)]">
-                      <CardHeader className="pb-4 bg-[color-mix(in_srgb,var(--status-done),var(--card)_90%)] border-b border-[color-mix(in_srgb,var(--status-done),var(--card)_20%)]">
+                    <Card className="shadow-sm border-success-card-border bg-success-card-bg">
+                      <CardHeader className="pb-4 bg-success-header-bg border-b border-success-card-border">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-full bg-[color-mix(in_srgb,var(--status-done),var(--muted)_60%)]">
-                            <CheckCircle className="w-5 h-5 text-[var(--status-done)]" />
+                          <div className="p-2 rounded-full bg-success-icon-bg">
+                            <CheckCircle className="w-5 h-5 text-status-done" />
                           </div>
                           <div className="flex-1">
-                            <CardTitle className="text-lg font-semibold text-[color-mix(in_srgb,var(--status-done),var(--foreground)_20%)]">
+                            <CardTitle className="text-lg font-semibold text-success-title">
                               Post Generated Successfully
                             </CardTitle>
-                            <CardDescription className="text-sm text-[color-mix(in_srgb,var(--status-done),var(--foreground)_30%)]">
+                            <CardDescription className="text-sm text-success-description">
                               Ready to share on {generatedPost.platform}
                             </CardDescription>
                           </div>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-5">
-                        <div className="p-5 bg-[var(--card)] rounded-lg border border-[color-mix(in_srgb,var(--status-done),var(--border)_30%)] shadow-sm">
+                        <div className="p-5 bg-card rounded-lg border border-success-border shadow-sm">
                           <Streamdown
-                            className="prose prose-sm max-w-none text-[var(--foreground)]"
+                            className="prose prose-sm max-w-none text-foreground"
                             parseIncompleteMarkdown={true}
                             controls={true}
                             isAnimating={status === 'streaming'}
@@ -806,7 +806,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                         <div className="flex flex-col sm:flex-row gap-2">
                           <Button
                             variant="outline"
-                            className="h-10 px-4 border-[color-mix(in_srgb,var(--status-done),var(--border)_40%)] text-[color-mix(in_srgb,var(--status-done),var(--foreground)_30%)] hover:bg-[color-mix(in_srgb,var(--status-done),var(--muted)_90%)] hover:border-[color-mix(in_srgb,var(--status-done),var(--border)_50%)] min-w-0 flex-1 sm:flex-initial"
+                            className="h-10 px-4 border-success-button-border text-success-button-text hover:bg-success-button-bg-hover hover:border-success-border-hover min-w-0 flex-1 sm:flex-initial"
                             onClick={() => {
                               navigator.clipboard.writeText(
                                 generatedPost.content
@@ -818,7 +818,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                           </Button>
                           <Button
                             variant="outline"
-                            className="h-10 px-4 border-[var(--border)] hover:bg-[var(--muted)] min-w-0 flex-1 sm:flex-initial"
+                            className="h-10 px-4 border-border hover:bg-muted min-w-0 flex-1 sm:flex-initial"
                             onClick={resetForm}
                           >
                             Create Another

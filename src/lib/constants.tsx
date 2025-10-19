@@ -19,6 +19,82 @@ export const GENERATED_POST_CONTENT_MAX_LENGTH = 280;
 export const SCRAPED_POST_CONTENT_MAX_LENGTH = 100000;
 export const TONE_WEIGHT_SIMILARITY_THRESHOLD = 80;
 
+// Platform-specific content generation guidelines
+export const PLATFORM_GENERATION_CONFIG = {
+  twitter: {
+    characterLimit: 280,
+    bestPractices: [
+      'Keep posts concise and impactful',
+      'Front-load key information in the first line',
+      'Use line breaks for readability (max 3-4 lines)',
+      'Avoid emojis unless specifically requested',
+      'Hashtags should be minimal and relevant (0-2 maximum)',
+      'Thread-style formatting is acceptable for complex ideas',
+      'Questions and hooks work well for engagement',
+    ],
+    formatting: {
+      preferredLength: '100-240 characters',
+      hashtagPlacement: 'end of post or naturally integrated',
+      urlHandling: 'URLs count as 23 characters regardless of length',
+    },
+  },
+  linkedin: {
+    characterLimit: 3000,
+    bestPractices: [
+      'Start with a compelling hook or question',
+      'Use professional but conversational tone',
+      'Break content into short paragraphs (2-3 sentences max)',
+      'Include a clear call-to-action',
+      'Avoid excessive emojis; use sparingly if at all',
+      'Data, insights, and personal experiences perform well',
+      'Consider using the "see more" preview strategically',
+      'Tag relevant companies or people when appropriate',
+    ],
+    formatting: {
+      preferredLength: '150-300 words for optimal engagement',
+      hashtagPlacement: 'end of post (3-5 relevant hashtags)',
+      urlHandling: 'Link previews auto-generate; consider placement',
+    },
+  },
+  instagram: {
+    characterLimit: 2200,
+    bestPractices: [
+      'First line is critical for grabbing attention',
+      'Use line breaks and spacing for visual appeal',
+      'Emojis can be used more liberally than other platforms',
+      'Storytelling and authenticity drive engagement',
+      'Include a clear call-to-action',
+      'Consider the caption as complementary to visual content',
+      'Ask questions to encourage comments',
+    ],
+    formatting: {
+      preferredLength: '138-150 characters or 500+ for deeper stories',
+      hashtagPlacement: 'end of post or first comment (10-30 hashtags)',
+      urlHandling: 'Links are not clickable; use bio link or stories',
+    },
+  },
+  facebook: {
+    characterLimit: 63206,
+    bestPractices: [
+      'Keep posts concise despite high character limit (40-80 characters perform best)',
+      'Questions and fill-in-the-blank posts drive engagement',
+      'Use conversational, friendly tone',
+      'Avoid emojis unless specifically requested',
+      'Consider your audience demographics (typically older)',
+      'Link posts should have compelling preview text',
+      'Native content performs better than external links',
+    ],
+    formatting: {
+      preferredLength: '40-80 characters for optimal engagement',
+      hashtagPlacement: 'minimal usage; 1-3 hashtags maximum',
+      urlHandling:
+        'Link previews auto-generate; remove URL after preview loads',
+    },
+  },
+} as const;
+
+export type Platform = keyof typeof PLATFORM_GENERATION_CONFIG;
+
 export const authOptionsSchema = z.enum(['EMAIL', 'GOOGLE', 'GITHUB']);
 export type AuthOptionsType = z.infer<typeof authOptionsSchema>;
 

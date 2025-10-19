@@ -12,7 +12,10 @@ import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
 import { createPrompt } from '~/lib/ai/utils';
 import { auth } from '~/lib/auth/server';
-import { TONE_WEIGHT_SIMILARITY_THRESHOLD } from '~/lib/constants';
+import {
+  PLATFORM_GENERATION_CONFIG,
+  TONE_WEIGHT_SIMILARITY_THRESHOLD,
+} from '~/lib/constants';
 import { AppError, createErrorResponse } from '~/lib/errors';
 import { firecrawl } from '~/lib/firecrawl';
 import {
@@ -42,6 +45,32 @@ const generatePostSchema = postFormSchema.pick({
   link_ownership_type: true,
   tone_profile: true,
 });
+
+/**
+ * Formats platform-specific instructions from the configuration
+ */
+function getPlatformInstructions(
+  platform: keyof typeof PLATFORM_GENERATION_CONFIG
+): string {
+  const config = PLATFORM_GENERATION_CONFIG[platform];
+
+  const bestPracticesList = config.bestPractices
+    .map((practice) => `  • ${practice}`)
+    .join('\n');
+
+  return `Platform: ${platform.charAt(0).toUpperCase() + platform.slice(1)}
+
+Best Practices:
+${bestPracticesList}
+
+Formatting Guidelines:
+  • Character limit: ${config.characterLimit}
+  • Preferred length: ${config.formatting.preferredLength}
+  • Hashtag placement: ${config.formatting.hashtagPlacement}
+  • URL handling: ${config.formatting.urlHandling}
+
+Use the specified tone profile weights to guide your writing style.`;
+}
 
 export async function POST(request: Request) {
   console.log('=== POST /api/posts/generate (Streaming) ===');
@@ -196,7 +225,9 @@ ${slicedContent}`,
             (
               SELECT SUM(
                 CASE
-                  WHEN ABS((tone_elem->>'weight')::int - ut.weight) <= ${sql.param(TONE_WEIGHT_SIMILARITY_THRESHOLD)} THEN 1
+                  WHEN ABS((tone_elem->>'weight')::int - ut.weight) <= ${sql.param(
+                    TONE_WEIGHT_SIMILARITY_THRESHOLD
+                  )} THEN 1
                   ELSE 0
                 END
               )
@@ -291,7 +322,9 @@ Content type: ${analysis.content_type}
 Target audience: ${analysis.target_audience}
 Call to action: ${analysis.call_to_action_type || 'any'}
 Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
-          detailedTaskInstructions: `Follow best practices for ${submissionData.platform}. Avoid emojis. Keep it engaging. Use the specified tone profile weights to guide your writing style.`,
+          detailedTaskInstructions: getPlatformInstructions(
+            submissionData.platform
+          ),
           examples,
           finalRequest: `Write a ${submissionData.platform} post that effectively promotes the link above, in the specified tone and voice.`,
           outputFormatting: `Reply with the post content only, no explanations.`,

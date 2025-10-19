@@ -261,7 +261,7 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
       // Assign the remaining weight to the new tone, or a default of 10 if none remains
       const totalWeight = value.reduce((sum, tone) => sum + tone.weight, 0);
       const remainingWeight = 100 - totalWeight;
-      const newWeight = remainingWeight > 0 ? remainingWeight : 10;
+      const newWeight = remainingWeight > 0 ? remainingWeight : 0;
       onChange([...value, { tone: toneValue, weight: newWeight }]);
     }
   };

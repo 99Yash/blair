@@ -7,7 +7,7 @@ import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { training_posts } from '~/db/schemas';
 import { auth } from '~/lib/auth/server';
-import { POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
+import { SCRAPED_POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
 import { firecrawl } from '~/lib/firecrawl';
 import {
   postFormSchema,
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
     });
 
     const content = scrapedContent.markdown ?? scrapedContent.html ?? '';
-    const slicedContent = content.slice(0, POST_CONTENT_MAX_LENGTH);
+    const slicedContent = content.slice(0, SCRAPED_POST_CONTENT_MAX_LENGTH);
 
     const { object: analysis } = await generateObject({
       model: openai('gpt-4o-mini'),

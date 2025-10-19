@@ -1,0 +1,1 @@
+ALTER TABLE "generate_posts" ADD CONSTRAINT "generate_posts_user_id_original_url_unique" UNIQUE("user_id","original_url");

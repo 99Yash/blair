@@ -1,7 +1,10 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
+import process from 'process';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    browserDebugInfoInTerminal: process.env.NODE_ENV === 'development',
+  },
 };
 
 export default nextConfig;

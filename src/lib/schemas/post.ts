@@ -208,3 +208,26 @@ export const inferredPostSchema = z.object({
 });
 
 export type InferredPostData = z.infer<typeof inferredPostSchema>;
+
+export const generatedPostSchema = z.object({
+  post_content: z
+    .string()
+    .min(1, 'Generated post content is required')
+    .max(
+      POST_CONTENT_MAX_LENGTH,
+      `Generated post content must be less than ${POST_CONTENT_MAX_LENGTH} characters`
+    )
+    .describe('The actual generated social media post content'),
+  platform_specific_tips: z
+    .string()
+    .optional()
+    .describe('Platform-specific tips for posting this content'),
+  estimated_engagement: z
+    .number()
+    .min(1)
+    .max(10)
+    .optional()
+    .describe('Estimated engagement level (1-10)'),
+});
+
+export type GeneratedPostData = z.infer<typeof generatedPostSchema>;

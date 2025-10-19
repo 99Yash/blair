@@ -1,6 +1,7 @@
 'use client';
 
-import { HelpCircle, LogOut, Receipt, Sparkles } from 'lucide-react';
+import { HelpCircle, LogOut, Plus, Receipt, Sparkles } from 'lucide-react';
+import Link from 'next/link';
 import * as React from 'react';
 import { authClient } from '~/lib/auth/client';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
@@ -70,6 +71,12 @@ export function UserDropdown() {
         <DropdownMenuSeparator />
 
         <div className="p-2">
+          <DropdownMenuItem asChild className="cursor-pointer">
+            <Link href="/create">
+              <Plus className="mr-2 h-4 w-4" />
+              <span>Create Post</span>
+            </Link>
+          </DropdownMenuItem>
           <DropdownMenuItem className="cursor-pointer">
             <Sparkles className="mr-2 h-4 w-4" />
             <span>Getting Started</span>

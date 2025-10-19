@@ -12,6 +12,7 @@ import {
   postFormSchema,
   scrapedContentAnalysisSchema,
 } from '~/lib/schemas/post';
+import { getErrorMessage } from '~/lib/utils';
 
 const POST_CONTENT_MAX_LENGTH = 100000;
 
@@ -29,7 +30,9 @@ export async function POST(request: Request) {
   const parseResult = postFormSchema.safeParse(body);
   if (!parseResult.success) {
     return NextResponse.json(
-      { message: 'Validation error', errors: parseResult.error.errors },
+      {
+        message: getErrorMessage(parseResult.error),
+      },
       { status: 400 }
     );
   }
@@ -64,8 +67,6 @@ export async function POST(request: Request) {
     const content = scrapedContent.markdown ?? scrapedContent.html ?? '';
     const slicedContent = content.slice(0, POST_CONTENT_MAX_LENGTH);
 
-    console.log('scrapedContent', scrapedContent);
-
     const { object: analysis } = await generateObject({
       model: openai('gpt-4o-mini'),
       schema: scrapedContentAnalysisSchema,
@@ -81,32 +82,21 @@ export async function POST(request: Request) {
       ],
     });
 
-    console.log('Generated embeddings:', {
-      postContentLength: (scrapedContent.markdown ?? '').length,
-      summaryLength: analysis.content_summary.length,
-      embeddingDimensions: embeddings[0]?.length,
+    await db.insert(training_posts).values({
+      original_url: validatedBody.original_url,
+      post_content: scrapedContent.markdown ?? '',
+      platform: validatedBody.platform,
+      content_type: validatedBody.content_type,
+      content_summary: analysis.content_summary,
+      call_to_action_type: analysis.call_to_action_type,
+      sales_pitch_strength: analysis.sales_pitch_strength,
+      tone_profile: analysis.tone_profile,
+      link_ownership_type: validatedBody.link_ownership_type,
+      target_audience: validatedBody.target_audience,
+      user_id: session.user.id,
+      embedding: embeddings[0],
+      content_summary_embedding: embeddings[1],
     });
-
-    const [post] = await db
-      .insert(training_posts)
-      .values({
-        original_url: validatedBody.original_url,
-        post_content: scrapedContent.markdown ?? '',
-        platform: validatedBody.platform,
-        content_type: validatedBody.content_type,
-        content_summary: analysis.content_summary,
-        call_to_action_type: analysis.call_to_action_type,
-        sales_pitch_strength: analysis.sales_pitch_strength,
-        tone_profile: analysis.tone_profile,
-        link_ownership_type: validatedBody.link_ownership_type,
-        target_audience: validatedBody.target_audience,
-        user_id: session.user.id,
-        embedding: embeddings[0],
-        content_summary_embedding: embeddings[1],
-      })
-      .returning();
-
-    console.log('post', post);
 
     return NextResponse.json(
       { message: 'Post created successfully' },

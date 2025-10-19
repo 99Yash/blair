@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import { boolean, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { generate_posts } from './generate-post';
 import { lifecycle_dates } from './helpers';
 import { training_posts } from './training-post';
 
@@ -14,6 +15,7 @@ export const user = pgTable('user', {
 
 export const userRelations = relations(user, ({ many }) => ({
   trainingPosts: many(training_posts),
+  generatePosts: many(generate_posts),
 }));
 
 export const session = pgTable('session', {

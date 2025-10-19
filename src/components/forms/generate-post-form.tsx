@@ -258,7 +258,11 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
 
   const addTone = (toneValue: string) => {
     if (!value.some((t) => t.tone === toneValue)) {
-      onChange([...value, { tone: toneValue, weight: 0 }]);
+      // Assign the remaining weight to the new tone, or a default of 10 if none remains
+      const totalWeight = value.reduce((sum, tone) => sum + tone.weight, 0);
+      const remainingWeight = 100 - totalWeight;
+      const newWeight = remainingWeight > 0 ? remainingWeight : 10;
+      onChange([...value, { tone: toneValue, weight: newWeight }]);
     }
   };
 

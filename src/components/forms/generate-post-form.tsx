@@ -7,10 +7,9 @@ import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod/v4';
 
-import { markdownLookBack } from '@llm-ui/markdown';
-import { useLLMOutput } from '@llm-ui/react';
 import { DefaultChatTransport } from 'ai';
 import { AlertCircle, CheckCircle, Clock, Info, Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
 import { toast } from 'sonner';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
@@ -44,7 +43,187 @@ import {
   type StreamingPostMessage,
 } from '~/lib/types/streaming';
 
-// Simplified form schema - only fields that cannot be inferred by AI
+// ToneSelector component for selecting tones and weights
+interface ToneSelectorProps {
+  value: Array<{ tone: string; weight: number }>;
+  onChange: (value: Array<{ tone: string; weight: number }>) => void;
+}
+
+function ToneSelector({ value, onChange }: ToneSelectorProps) {
+  const availableTones = [
+    { value: 'witty', label: 'Witty', description: 'Clever and humorous' },
+    {
+      value: 'professional',
+      label: 'Professional',
+      description: 'Formal and business-like',
+    },
+    {
+      value: 'inspirational',
+      label: 'Inspirational',
+      description: 'Motivational and uplifting',
+    },
+    {
+      value: 'casual',
+      label: 'Casual',
+      description: 'Relaxed and conversational',
+    },
+    {
+      value: 'direct',
+      label: 'Direct',
+      description: 'Straightforward and to the point',
+    },
+    {
+      value: 'empathetic',
+      label: 'Empathetic',
+      description: 'Understanding and caring',
+    },
+  ];
+
+  const addTone = (toneValue: string) => {
+    if (!value.some((t) => t.tone === toneValue)) {
+      onChange([...value, { tone: toneValue, weight: 0 }]);
+    }
+  };
+
+  const removeTone = (toneValue: string) => {
+    onChange(value.filter((t) => t.tone !== toneValue));
+  };
+
+  const updateWeight = (toneValue: string, weight: number) => {
+    onChange(
+      value.map((t) =>
+        t.tone === toneValue
+          ? { ...t, weight: Math.max(0, Math.min(100, weight)) }
+          : t
+      )
+    );
+  };
+
+  const totalWeight = value.reduce((sum, tone) => sum + tone.weight, 0);
+  const remainingWeight = 100 - totalWeight;
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Tone Profile</label>
+        <p className="text-xs text-muted-foreground">
+          Select tones and assign weights (total should not exceed 100)
+        </p>
+      </div>
+
+      {/* Selected tones */}
+      <div className="space-y-3">
+        {value.map((tone) => (
+          <div
+            key={tone.tone}
+            className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg"
+          >
+            <div className="flex-1">
+              <div className="font-medium text-sm">
+                {availableTones.find((t) => t.value === tone.tone)?.label}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {availableTones.find((t) => t.value === tone.tone)?.description}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min="0"
+                max="100"
+                value={tone.weight}
+                onChange={(e) =>
+                  updateWeight(tone.tone, parseInt(e.target.value) || 0)
+                }
+                className="w-16 h-8 text-xs"
+                placeholder="0"
+              />
+              <span className="text-xs text-muted-foreground w-8">%</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => removeTone(tone.tone)}
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+              >
+                ×
+              </Button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Available tones to add */}
+      {value.length < availableTones.length && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-muted-foreground">
+            Add Tones
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            {availableTones
+              .filter(
+                (tone) =>
+                  !value.some((selected) => selected.tone === tone.value)
+              )
+              .map((tone) => (
+                <Button
+                  key={tone.value}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addTone(tone.value)}
+                  className="h-auto p-3 text-left justify-start"
+                >
+                  <div>
+                    <div className="font-medium text-sm">{tone.label}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {tone.description}
+                    </div>
+                  </div>
+                </Button>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {/* Weight summary */}
+      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+        <div className="text-sm">
+          <span className="font-medium">Total Weight:</span> {totalWeight}/100
+        </div>
+        <div
+          className={`text-xs ${
+            remainingWeight >= 0 ? 'text-muted-foreground' : 'text-destructive'
+          }`}
+        >
+          {remainingWeight > 0
+            ? `${remainingWeight} remaining`
+            : remainingWeight < 0
+            ? `${Math.abs(remainingWeight)} over limit`
+            : 'Perfect!'}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Dynamically import LLMOutput to avoid SSR issues with Shiki
+const LLMOutput = dynamic(
+  () =>
+    import('~/components/ui/llm-output').then((mod) => ({
+      default: mod.LLMOutput,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="text-sm text-muted-foreground animate-pulse">
+        Loading renderer...
+      </div>
+    ),
+  }
+);
+
+// Form schema with tone profile selection
 const createPostFormSchema = z.object({
   original_url: z.url('Must be a valid URL'),
   platform: z.enum(['twitter', 'instagram', 'facebook', 'linkedin'], {
@@ -53,6 +232,25 @@ const createPostFormSchema = z.object({
   link_ownership_type: z.enum(['own_content', 'third_party_content'], {
     message: 'Please select ownership type',
   }),
+  tone_profile: z
+    .array(
+      z.object({
+        tone: z.enum([
+          'witty',
+          'professional',
+          'inspirational',
+          'casual',
+          'direct',
+          'empathetic',
+        ]),
+        weight: z.number().min(0).max(100),
+      })
+    )
+    .min(1, 'Please select at least one tone')
+    .refine(
+      (tones) => tones.reduce((sum, tone) => sum + tone.weight, 0) <= 100,
+      'Total tone weights cannot exceed 100'
+    ),
 });
 
 type CreatePostFormData = z.infer<typeof createPostFormSchema>;
@@ -105,37 +303,12 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
   const trainingPosts = lastMessage?.parts.find(
     (part) => part.type === 'data-training_posts'
   )?.data;
-
-  // Get the raw streaming content for LLM UI
+  // Use the LAST occurrence of generated_post to get the latest streamed content
   const generatedPostParts = lastMessage?.parts.filter(
     (part) => part.type === 'data-generated_post'
   );
-  const latestGeneratedPostPart =
-    generatedPostParts?.[generatedPostParts.length - 1];
-  const generatedPostContent = latestGeneratedPostPart?.data?.content || '';
-
-  // Use LLM UI for smooth streaming
-  const { visibleText, isFinished, blockMatches } = useLLMOutput({
-    llmOutput: generatedPostContent,
-    fallbackBlock: {
-      component: ({ blockMatch }) => (
-        <div className="prose prose-sm dark:prose-invert max-w-none">
-          <div dangerouslySetInnerHTML={{ __html: blockMatch.output }} />
-        </div>
-      ),
-      lookBack: markdownLookBack(),
-    },
-    blocks: [],
-    isStreamFinished: status !== 'streaming' && status !== 'submitted',
-  });
-
-  // Create a complete generated post object for display
-  const generatedPost = latestGeneratedPostPart?.data
-    ? {
-        ...latestGeneratedPostPart.data,
-        content: generatedPostContent,
-      }
-    : null;
+  const generatedPost =
+    generatedPostParts?.[generatedPostParts.length - 1]?.data;
 
   const form = useForm<CreatePostFormData>({
     resolver: zodResolver(createPostFormSchema),
@@ -143,11 +316,23 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
       original_url: '',
       platform: 'twitter',
       link_ownership_type: 'third_party_content',
+      tone_profile: [
+        { tone: 'professional', weight: 60 },
+        { tone: 'casual', weight: 40 },
+      ],
     },
   });
 
   const resetForm = () => {
-    form.reset();
+    form.reset({
+      original_url: '',
+      platform: 'twitter',
+      link_ownership_type: 'third_party_content',
+      tone_profile: [
+        { tone: 'professional', weight: 60 },
+        { tone: 'casual', weight: 40 },
+      ],
+    });
     clearError();
     setNotifications([]);
   };
@@ -299,6 +484,22 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                   )}
                 />
 
+                <FormField
+                  control={form.control}
+                  name="tone_profile"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormControl>
+                        <ToneSelector
+                          value={field.value}
+                          onChange={field.onChange}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="pt-4 border-t border-border/50">
                   <Button
                     type="submit"
@@ -323,8 +524,8 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
         <div className="space-y-4">
           {/* Progress and Notifications */}
           {(isSubmitting ||
-            (currentProgress && !isFinished) ||
-            (notifications.length > 0 && !isFinished)) && (
+            (currentProgress && !generatedPost) ||
+            (notifications.length > 0 && !generatedPost)) && (
             <motion.div
               layout
               initial="initial"
@@ -346,7 +547,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
 
                   {/* Subtle indeterminate progress bar during loading */}
                   {(isSubmitting || currentProgress?.status === 'loading') &&
-                    !isFinished && (
+                    !generatedPost && (
                       <div
                         className="mt-3 relative h-1 rounded bg-muted overflow-hidden"
                         aria-hidden="true"
@@ -590,7 +791,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
             </Card>
           )}
 
-          {generatedPost && isFinished && (
+          {generatedPost && (
             <AnimatePresence>
               <motion.div
                 key="generated-post"
@@ -612,14 +813,13 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                   </CardHeader>
                   <CardContent className="pt-2">
                     <div className="p-4 bg-muted/50 rounded-lg border">
-                      <div className="text-sm leading-relaxed">
-                        {blockMatches.map((blockMatch, index) => {
-                          const Component = blockMatch.block.component;
-                          return (
-                            <Component key={index} blockMatch={blockMatch} />
-                          );
-                        })}
-                      </div>
+                      <LLMOutput
+                        output={generatedPost.content}
+                        isStreamFinished={
+                          status !== 'streaming' && status !== 'submitted'
+                        }
+                        className="text-sm leading-relaxed"
+                      />
                     </div>
                     <div className="mt-4 flex gap-2">
                       <Button
@@ -627,9 +827,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                         size="sm"
                         className="h-8 bg-transparent"
                         onClick={() => {
-                          navigator.clipboard.writeText(
-                            visibleText || generatedPost.content
-                          );
+                          navigator.clipboard.writeText(generatedPost.content);
                           toast.success('Copied to clipboard');
                         }}
                       >

@@ -28,11 +28,12 @@ import {
   StreamingPostMessage,
 } from '~/lib/types/streaming';
 
-// Simplified schema for the generate endpoint - only fields that cannot be inferred by AI
+// Schema for the generate endpoint - includes tone profile from user
 const generatePostSchema = postFormSchema.pick({
   original_url: true,
   platform: true,
   link_ownership_type: true,
+  tone_profile: true,
 });
 
 const TONE_WEIGHT_SIMILARITY_THRESHOLD = 50;
@@ -182,8 +183,8 @@ Return an object with these exact fields:
           )
         );
 
-        // Use the tone profile from AI analysis (LLM-inferred)
-        const toneProfile = analysis.tone_profile;
+        // Use the user-provided tone profile
+        const toneProfile = submissionData.tone_profile;
 
         // Convert toneProfile to JSON so we can use it inside SQL
         const toneProfileJson = JSON.stringify(toneProfile);
@@ -289,10 +290,10 @@ Content type: ${analysis.content_type}
 Target audience: ${analysis.target_audience}
 Call to action: ${analysis.call_to_action_type || 'any'}
 Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
-          detailedTaskInstructions: `Follow best practices for ${submissionData.platform}. Avoid emojis. Keep it engaging. `,
+          detailedTaskInstructions: `Follow best practices for ${submissionData.platform}. Avoid emojis. Keep it engaging. Use the specified tone profile weights to guide your writing style.`,
           examples,
           finalRequest: `Write a ${submissionData.platform} post that effectively promotes the link above, in the specified tone and voice.`,
-          outputFormatting: `Reply with the post content only, no explanations.`,
+          outputFormatting: `Reply with the post content only, no explanations. Use 100 words.`,
         });
 
         const generationResult = streamText({

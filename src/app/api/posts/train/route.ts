@@ -7,14 +7,13 @@ import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { training_posts } from '~/db/schemas';
 import { auth } from '~/lib/auth/server';
+import { POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
 import { firecrawl } from '~/lib/firecrawl';
 import {
   postFormSchema,
   scrapedContentAnalysisSchema,
 } from '~/lib/schemas/post';
 import { getErrorMessage } from '~/lib/utils';
-
-const POST_CONTENT_MAX_LENGTH = 100000;
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({

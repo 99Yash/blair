@@ -17,7 +17,6 @@ export type StreamingDataMap = {
     content_type: string;
     target_audience: string;
     tone_profile?: Array<{ tone: string; weight: number }>;
-    call_to_action_type?: string;
     sales_pitch_strength?: number;
   };
   training_posts: {

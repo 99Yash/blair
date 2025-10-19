@@ -64,6 +64,13 @@
       "when": 1760671801548,
       "tag": "0008_short_azazel",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1760886657585,
+      "tag": "0009_remove_call_to_action_type",
+      "breakpoints": true
     }
   ]
 }

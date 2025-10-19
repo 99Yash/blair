@@ -128,19 +128,6 @@ export const inferredPostSchema = z.object({
       })
     )
     .min(1),
-  call_to_action_type: z
-    .enum([
-      'learn_more',
-      'sign_up',
-      'buy_now',
-      'read_article',
-      'watch_video',
-      'download',
-      'join_community',
-      'poll_question',
-      'other',
-    ])
-    .describe('The call to action type of the post'),
 });
 
 export type InferredPostData = z.infer<typeof inferredPostSchema>;

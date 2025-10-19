@@ -282,7 +282,7 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           detailedTaskInstructions: `Follow best practices for ${submissionData.platform}. Avoid emojis. Keep it engaging. Use the specified tone profile weights to guide your writing style.`,
           examples,
           finalRequest: `Write a ${submissionData.platform} post that effectively promotes the link above, in the specified tone and voice.`,
-          outputFormatting: `Reply with the post content only, no explanations. Use 100 words.`,
+          outputFormatting: `Reply with the post content only, no explanations.`,
         });
 
         const generationResult = streamText({

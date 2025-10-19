@@ -198,7 +198,6 @@ ${slicedContent}`,
             content_type: analysis.content_type,
             target_audience: analysis.target_audience,
             tone_profile: analysis.tone_profile,
-            call_to_action_type: analysis.call_to_action_type,
             sales_pitch_strength: analysis.sales_pitch_strength,
           })
         );
@@ -253,11 +252,6 @@ ${slicedContent}`,
         if (analysis.target_audience) {
           toneSimilaritySql.append(
             sql` AND tp.target_audience = ${analysis.target_audience}`
-          );
-        }
-        if (analysis.call_to_action_type) {
-          toneSimilaritySql.append(
-            sql` AND tp.call_to_action_type = ${analysis.call_to_action_type}`
           );
         }
 
@@ -320,7 +314,6 @@ Link ownership: ${submissionData.link_ownership_type}
 Content summary: ${analysis.content_summary}
 Content type: ${analysis.content_type}
 Target audience: ${analysis.target_audience}
-Call to action: ${analysis.call_to_action_type || 'any'}
 Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           detailedTaskInstructions: getPlatformInstructions(
             submissionData.platform

@@ -81,20 +81,6 @@ export const scrapedContentAnalysisSchema = z.object({
     )
     .min(1)
     .describe('The primary tone(s) used in the scraped content'),
-  call_to_action_type: z
-    .enum([
-      'learn_more',
-      'sign_up',
-      'buy_now',
-      'read_article',
-      'watch_video',
-      'download',
-      'join_community',
-      'poll_question',
-      'other',
-    ])
-    .optional()
-    .describe('The call to action type of the scraped content'),
   sales_pitch_strength: z
     .number()
     .min(0)

@@ -7,9 +7,11 @@ import { useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import * as z from 'zod/v4';
 
+import { markdownLookBack } from '@llm-ui/markdown';
+import { useLLMOutput } from '@llm-ui/react';
 import { DefaultChatTransport } from 'ai';
 import { AlertCircle, CheckCircle, Clock, Info, Loader2 } from 'lucide-react';
-import dynamic from 'next/dynamic';
+import { toast } from 'sonner';
 import { Badge } from '~/components/ui/badge';
 import { Button } from '~/components/ui/button';
 import {
@@ -41,22 +43,6 @@ import {
   StreamingDataMap,
   type StreamingPostMessage,
 } from '~/lib/types/streaming';
-
-// Dynamically import LLMOutput to avoid SSR issues with Shiki
-const LLMOutput = dynamic(
-  () =>
-    import('~/components/ui/llm-output').then((mod) => ({
-      default: mod.LLMOutput,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="text-sm text-muted-foreground animate-pulse">
-        Loading renderer...
-      </div>
-    ),
-  }
-);
 
 // Simplified form schema - only fields that cannot be inferred by AI
 const createPostFormSchema = z.object({
@@ -119,12 +105,37 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
   const trainingPosts = lastMessage?.parts.find(
     (part) => part.type === 'data-training_posts'
   )?.data;
-  // Use the LAST occurrence of generated_post to get the latest streamed content
+
+  // Get the raw streaming content for LLM UI
   const generatedPostParts = lastMessage?.parts.filter(
     (part) => part.type === 'data-generated_post'
   );
-  const generatedPost =
-    generatedPostParts?.[generatedPostParts.length - 1]?.data;
+  const latestGeneratedPostPart =
+    generatedPostParts?.[generatedPostParts.length - 1];
+  const generatedPostContent = latestGeneratedPostPart?.data?.content || '';
+
+  // Use LLM UI for smooth streaming
+  const { visibleText, isFinished, blockMatches } = useLLMOutput({
+    llmOutput: generatedPostContent,
+    fallbackBlock: {
+      component: ({ blockMatch }) => (
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          <div dangerouslySetInnerHTML={{ __html: blockMatch.output }} />
+        </div>
+      ),
+      lookBack: markdownLookBack(),
+    },
+    blocks: [],
+    isStreamFinished: status !== 'streaming' && status !== 'submitted',
+  });
+
+  // Create a complete generated post object for display
+  const generatedPost = latestGeneratedPostPart?.data
+    ? {
+        ...latestGeneratedPostPart.data,
+        content: generatedPostContent,
+      }
+    : null;
 
   const form = useForm<CreatePostFormData>({
     resolver: zodResolver(createPostFormSchema),
@@ -312,8 +323,8 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
         <div className="space-y-4">
           {/* Progress and Notifications */}
           {(isSubmitting ||
-            (currentProgress && !generatedPost) ||
-            (notifications.length > 0 && !generatedPost)) && (
+            (currentProgress && !isFinished) ||
+            (notifications.length > 0 && !isFinished)) && (
             <motion.div
               layout
               initial="initial"
@@ -335,7 +346,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
 
                   {/* Subtle indeterminate progress bar during loading */}
                   {(isSubmitting || currentProgress?.status === 'loading') &&
-                    !generatedPost && (
+                    !isFinished && (
                       <div
                         className="mt-3 relative h-1 rounded bg-muted overflow-hidden"
                         aria-hidden="true"
@@ -579,7 +590,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
             </Card>
           )}
 
-          {generatedPost && (
+          {generatedPost && isFinished && (
             <AnimatePresence>
               <motion.div
                 key="generated-post"
@@ -601,13 +612,14 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                   </CardHeader>
                   <CardContent className="pt-2">
                     <div className="p-4 bg-muted/50 rounded-lg border">
-                      <LLMOutput
-                        output={generatedPost.content}
-                        isStreamFinished={
-                          status !== 'streaming' && status !== 'submitted'
-                        }
-                        className="text-sm leading-relaxed"
-                      />
+                      <div className="text-sm leading-relaxed">
+                        {blockMatches.map((blockMatch, index) => {
+                          const Component = blockMatch.block.component;
+                          return (
+                            <Component key={index} blockMatch={blockMatch} />
+                          );
+                        })}
+                      </div>
                     </div>
                     <div className="mt-4 flex gap-2">
                       <Button
@@ -615,7 +627,10 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                         size="sm"
                         className="h-8 bg-transparent"
                         onClick={() => {
-                          navigator.clipboard.writeText(generatedPost.content);
+                          navigator.clipboard.writeText(
+                            visibleText || generatedPost.content
+                          );
+                          toast.success('Copied to clipboard');
                         }}
                       >
                         Copy to Clipboard

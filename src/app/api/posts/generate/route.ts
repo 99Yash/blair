@@ -13,6 +13,7 @@ import { generate_posts } from '~/db/schemas';
 import { createPrompt } from '~/lib/ai/utils';
 import { auth } from '~/lib/auth/server';
 import { TONE_WEIGHT_SIMILARITY_THRESHOLD } from '~/lib/constants';
+import { AppError, createErrorResponse } from '~/lib/errors';
 import { firecrawl } from '~/lib/firecrawl';
 import {
   postFormSchema,
@@ -27,6 +28,12 @@ import {
   PROGRESS_STAGES,
   StreamingPostMessage,
 } from '~/lib/types/streaming';
+import {
+  createAuthError,
+  createConflictError,
+  createExternalServiceError,
+  createValidationError,
+} from '~/lib/utils';
 
 // Schema for the generate endpoint - includes tone profile from user
 const generatePostSchema = postFormSchema.pick({
@@ -44,28 +51,31 @@ export async function POST(request: Request) {
   });
 
   if (!session?.user) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const error = createAuthError();
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
   }
 
   let body;
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json(
-      { message: 'Invalid JSON in request body' },
-      { status: 400 }
-    );
+    const error = new AppError({
+      code: 'BAD_REQUEST',
+      message: 'Invalid JSON in request body',
+    });
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
   }
 
   const parseResult = generatePostSchema.safeParse(body);
   if (!parseResult.success) {
-    return NextResponse.json(
-      {
-        message: 'Validation error',
-        errors: parseResult.error.issues.map((issue) => issue.message),
-      },
-      { status: 400 }
-    );
+    const error = createValidationError(parseResult.error.issues);
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
   }
 
   const submissionData = parseResult.data;
@@ -130,16 +140,18 @@ ${slicedContent}`,
         });
 
         if (!analysis || !analysis.content_summary) {
+          const error = createExternalServiceError(
+            'OpenAI',
+            'Failed to analyze website content'
+          );
           writer.write(
             createProgressData(
               PROGRESS_STAGES.ANALYZING,
-              'Failed to analyze website content',
+              error.message,
               'error'
             )
           );
-          writer.write(
-            createNotificationData('Failed to analyze website content', 'error')
-          );
+          writer.write(createNotificationData(error.message, 'error'));
           return;
         }
 
@@ -381,26 +393,29 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
             )
           );
         } catch (error) {
-          // Narrow the unknown error to access optional `code` and `message` properties safely
+          // Handle unique constraint violation
           const dbError =
             typeof error === 'object' && error !== null
               ? (error as { code?: string; message?: string })
               : undefined;
 
-          // Handle unique constraint violation
           if (
             dbError?.code === '23505' ||
             dbError?.message?.includes('unique constraint')
           ) {
+            const conflictError = createConflictError(
+              'You have already added this URL',
+              error
+            );
             writer.write(
               createProgressData(
                 PROGRESS_STAGES.SAVING,
-                'URL already exists for this user',
+                conflictError.message,
                 'error'
               )
             );
             writer.write(
-              createNotificationData('You have already added this URL', 'error')
+              createNotificationData(conflictError.message, 'error')
             );
             return;
           }
@@ -410,16 +425,32 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
         }
       } catch (err) {
         console.error('ERROR: Exception during post generation:', err);
-        writer.write(
-          createProgressData(
-            currentStage,
-            'An error occurred during generation',
-            'error'
-          )
-        );
-        writer.write(
-          createNotificationData('Internal server error occurred', 'error')
-        );
+
+        // Determine error type and create appropriate error message
+        let errorMessage = 'Internal server error occurred';
+        if (err instanceof Error) {
+          if (
+            err.message.includes('timeout') ||
+            err.message.includes('ETIMEDOUT')
+          ) {
+            errorMessage = 'Request timed out. Please try again.';
+          } else if (
+            err.message.includes('network') ||
+            err.message.includes('ECONNREFUSED')
+          ) {
+            errorMessage =
+              'Network error occurred. Please check your connection and try again.';
+          } else if (
+            err.message.includes('rate limit') ||
+            err.message.includes('429')
+          ) {
+            errorMessage =
+              'Rate limit exceeded. Please wait a moment and try again.';
+          }
+        }
+
+        writer.write(createProgressData(currentStage, errorMessage, 'error'));
+        writer.write(createNotificationData(errorMessage, 'error'));
       }
     },
   });

@@ -8,12 +8,19 @@ import { db } from '~/db';
 import { training_posts } from '~/db/schemas';
 import { auth } from '~/lib/auth/server';
 import { SCRAPED_POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
+import { AppError, createErrorResponse } from '~/lib/errors';
 import { firecrawl } from '~/lib/firecrawl';
 import {
   postFormSchema,
   scrapedContentAnalysisSchema,
 } from '~/lib/schemas/post';
-import { getErrorMessage } from '~/lib/utils';
+import {
+  createAuthError,
+  createConflictError,
+  createDatabaseError,
+  createExternalServiceError,
+  createValidationError,
+} from '~/lib/utils';
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -21,19 +28,31 @@ export async function POST(request: Request) {
   });
 
   if (!session?.user) {
-    return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    const error = createAuthError();
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
   }
 
-  const body = await request.json();
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    const error = new AppError({
+      code: 'BAD_REQUEST',
+      message: 'Invalid JSON in request body',
+    });
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
+  }
 
   const parseResult = postFormSchema.safeParse(body);
   if (!parseResult.success) {
-    return NextResponse.json(
-      {
-        message: getErrorMessage(parseResult.error),
-      },
-      { status: 400 }
-    );
+    const error = createValidationError(parseResult.error.issues);
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
   }
   const validatedBody = parseResult.data;
 
@@ -51,10 +70,10 @@ export async function POST(request: Request) {
       .limit(1);
 
     if (existingPost.length > 0) {
-      return NextResponse.json(
-        { message: 'You have already added this URL' },
-        { status: 409 }
-      );
+      const error = createConflictError('You have already added this URL');
+      return NextResponse.json(createErrorResponse(error), {
+        status: error.getStatusFromCode(),
+      });
     }
 
     const scrapedContent = await firecrawl.scrape(validatedBody.original_url, {
@@ -103,9 +122,46 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     console.error('Error scraping and analyzing URL:', error);
-    return NextResponse.json(
-      { message: 'Internal Server Error' },
-      { status: 500 }
-    );
+
+    // Determine specific error type based on the error message
+    let appError: AppError;
+    if (error instanceof Error) {
+      if (
+        error.message.includes('timeout') ||
+        error.message.includes('ETIMEDOUT')
+      ) {
+        appError = new AppError({
+          code: 'TIMEOUT',
+          message: 'Request timed out. Please try again.',
+        });
+      } else if (
+        error.message.includes('network') ||
+        error.message.includes('ECONNREFUSED')
+      ) {
+        appError = createExternalServiceError(
+          'Network',
+          'Network error occurred'
+        );
+      } else if (
+        error.message.includes('rate limit') ||
+        error.message.includes('429')
+      ) {
+        appError = new AppError({
+          code: 'TOO_MANY_REQUESTS',
+          message: 'Rate limit exceeded. Please wait a moment and try again.',
+        });
+      } else {
+        appError = createDatabaseError(
+          'Failed to process training post',
+          error
+        );
+      }
+    } else {
+      appError = createDatabaseError();
+    }
+
+    return NextResponse.json(createErrorResponse(appError), {
+      status: appError.getStatusFromCode(),
+    });
   }
 }

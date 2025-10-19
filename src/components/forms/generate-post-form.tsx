@@ -38,21 +38,28 @@ import {
   FormMessage,
 } from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select';
+import { SelectWithComboboxAPI, type Item } from '~/components/ui/select';
 import { Switch } from '~/components/ui/switch';
 import { type StreamingPostMessage } from '~/lib/types/streaming';
 
 // Default tone profile constants
 const DEFAULT_TONE_WEIGHTS = {
-  professional: 60,
-  casual: 40,
+  direct: 60,
+  inspirational: 40,
 } as const;
+
+// Platform and ownership type options
+const PLATFORMS: Item[] = [
+  { value: 'twitter', label: 'Twitter' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'facebook', label: 'Facebook' },
+  { value: 'linkedin', label: 'LinkedIn' },
+];
+
+const OWNERSHIP_TYPES: Item[] = [
+  { value: 'own_content', label: 'My Own' },
+  { value: 'third_party_content', label: 'Third Party' },
+];
 
 const DEFAULT_FORM_VALUES = {
   original_url: '',
@@ -60,10 +67,13 @@ const DEFAULT_FORM_VALUES = {
   link_ownership_type: 'third_party_content' as const,
   tone_profile: [
     {
-      tone: 'professional' as const,
-      weight: DEFAULT_TONE_WEIGHTS.professional,
+      tone: 'direct' as const,
+      weight: DEFAULT_TONE_WEIGHTS.direct,
     },
-    { tone: 'casual' as const, weight: DEFAULT_TONE_WEIGHTS.casual },
+    {
+      tone: 'inspirational' as const,
+      weight: DEFAULT_TONE_WEIGHTS.inspirational,
+    },
   ],
 };
 
@@ -599,22 +609,14 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                         <FormLabel className="text-sm font-medium text-foreground">
                           Platform *
                         </FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="h-10 transition-colors focus:ring-2 focus:ring-primary/20">
-                              <SelectValue placeholder="Select platform" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="twitter">Twitter</SelectItem>
-                            <SelectItem value="instagram">Instagram</SelectItem>
-                            <SelectItem value="facebook">Facebook</SelectItem>
-                            <SelectItem value="linkedin">LinkedIn</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <FormControl>
+                          <SelectWithComboboxAPI
+                            options={PLATFORMS}
+                            value={field.value}
+                            setValue={field.onChange}
+                            placeholder="Select platform"
+                          />
+                        </FormControl>
                         <FormMessage className="text-xs" />
                       </FormItem>
                     )}
@@ -770,26 +772,26 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                     exit={fadeInUp.exit}
                     transition={fadeInUp.transition}
                   >
-                    <Card className="shadow-sm border border-green-200/60 bg-green-50/20">
-                      <CardHeader className="pb-4 bg-green-50/40 border-b border-green-200/40">
+                    <Card className="shadow-sm border border-[color-mix(in_srgb,var(--status-done),var(--card)_20%)] bg-[color-mix(in_srgb,var(--status-done),var(--card)_95%)]">
+                      <CardHeader className="pb-4 bg-[color-mix(in_srgb,var(--status-done),var(--card)_90%)] border-b border-[color-mix(in_srgb,var(--status-done),var(--card)_20%)]">
                         <div className="flex items-center gap-3">
-                          <div className="p-2 rounded-full bg-green-100">
-                            <CheckCircle className="w-5 h-5 text-green-600" />
+                          <div className="p-2 rounded-full bg-[color-mix(in_srgb,var(--status-done),var(--muted)_60%)]">
+                            <CheckCircle className="w-5 h-5 text-[var(--status-done)]" />
                           </div>
                           <div className="flex-1">
-                            <CardTitle className="text-lg font-semibold text-green-800">
+                            <CardTitle className="text-lg font-semibold text-[color-mix(in_srgb,var(--status-done),var(--foreground)_20%)]">
                               Post Generated Successfully
                             </CardTitle>
-                            <CardDescription className="text-sm text-green-700">
+                            <CardDescription className="text-sm text-[color-mix(in_srgb,var(--status-done),var(--foreground)_30%)]">
                               Ready to share on {generatedPost.platform}
                             </CardDescription>
                           </div>
                         </div>
                       </CardHeader>
                       <CardContent className="space-y-5">
-                        <div className="p-5 bg-white/90 rounded-lg border border-green-100/80 shadow-sm">
+                        <div className="p-5 bg-[var(--card)] rounded-lg border border-[color-mix(in_srgb,var(--status-done),var(--border)_30%)] shadow-sm">
                           <Streamdown
-                            className="prose prose-sm max-w-none text-slate-800"
+                            className="prose prose-sm max-w-none text-[var(--foreground)]"
                             parseIncompleteMarkdown={true}
                             controls={true}
                             isAnimating={status === 'streaming'}
@@ -800,7 +802,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                         <div className="flex flex-col sm:flex-row gap-2">
                           <Button
                             variant="outline"
-                            className="h-10 px-4 border-green-200 text-green-700 hover:bg-green-50 hover:border-green-300 min-w-0 flex-1 sm:flex-initial"
+                            className="h-10 px-4 border-[color-mix(in_srgb,var(--status-done),var(--border)_40%)] text-[color-mix(in_srgb,var(--status-done),var(--foreground)_30%)] hover:bg-[color-mix(in_srgb,var(--status-done),var(--muted)_90%)] hover:border-[color-mix(in_srgb,var(--status-done),var(--border)_50%)] min-w-0 flex-1 sm:flex-initial"
                             onClick={() => {
                               navigator.clipboard.writeText(
                                 generatedPost.content
@@ -812,7 +814,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                           </Button>
                           <Button
                             variant="outline"
-                            className="h-10 px-4 border-slate-200 hover:bg-slate-50 min-w-0 flex-1 sm:flex-initial"
+                            className="h-10 px-4 border-[var(--border)] hover:bg-[var(--muted)] min-w-0 flex-1 sm:flex-initial"
                             onClick={resetForm}
                           >
                             Create Another

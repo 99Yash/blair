@@ -20,30 +20,24 @@ import {
   FieldLabel,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '~/components/ui/select';
+import { Item, SelectWithComboboxAPI } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
 
 import * as React from 'react';
 import { GENERATED_POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
 import { postFormSchema, type PostFormData } from '~/lib/schemas/post';
 
-const PLATFORMS = [
+const PLATFORMS: Item[] = [
   { value: 'twitter', label: 'Twitter' },
   { value: 'instagram', label: 'Instagram' },
   { value: 'facebook', label: 'Facebook' },
   { value: 'linkedin', label: 'LinkedIn' },
-] as const;
+];
 
-const OWNERSHIP_TYPES = [
+const OWNERSHIP_TYPES: Item[] = [
   { value: 'own_content', label: 'Own Content' },
   { value: 'third_party_content', label: 'Third Party Content' },
-] as const;
+];
 
 export function PostForm() {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -243,24 +237,12 @@ export function PostForm() {
                 render={({ field }) => (
                   <Field>
                     <FieldLabel>Platform</FieldLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select platform" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PLATFORMS.map((platform) => (
-                          <SelectItem
-                            key={platform.value}
-                            value={platform.value}
-                          >
-                            {platform.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SelectWithComboboxAPI
+                      options={PLATFORMS}
+                      value={field.value}
+                      setValue={field.onChange}
+                      placeholder="Select platform"
+                    />
                     <FieldError
                       errors={
                         form.formState.errors.platform?.message
@@ -282,24 +264,12 @@ export function PostForm() {
                 render={({ field }) => (
                   <Field>
                     <FieldLabel>Link Ownership</FieldLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select ownership type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {OWNERSHIP_TYPES.map((ownership) => (
-                          <SelectItem
-                            key={ownership.value}
-                            value={ownership.value}
-                          >
-                            {ownership.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SelectWithComboboxAPI
+                      options={OWNERSHIP_TYPES}
+                      value={field.value}
+                      setValue={field.onChange}
+                      placeholder="Select ownership type"
+                    />
                     <FieldError
                       errors={
                         form.formState.errors.link_ownership_type?.message

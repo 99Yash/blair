@@ -125,17 +125,8 @@ export async function POST(request: Request) {
         const { object: analysis } = await generateObject({
           model: openai('gpt-4o-mini'),
           schema: scrapedContentAnalysisSchema,
-          prompt: `Analyze the following scraped content and provide the analysis in the exact format specified by the schema. Return only the object data that matches the schema properties:
-
-${slicedContent}
-
-Return an object with these exact fields:
-- content_summary: string (summary of the content)
-- content_type: one of the enum values
-- target_audience: one of the enum values
-- tone_profile: array of tone objects with tone and weight
-- call_to_action_type: one of the enum values
-- sales_pitch_strength: number 0-100`,
+          prompt: `Analyze the following scraped content:
+${slicedContent}`,
         });
 
         if (!analysis || !analysis.content_summary) {

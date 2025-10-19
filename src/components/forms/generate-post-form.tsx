@@ -48,6 +48,55 @@ import {
 import { Switch } from '~/components/ui/switch';
 import { type StreamingPostMessage } from '~/lib/types/streaming';
 
+// Default tone profile constants
+const DEFAULT_TONE_WEIGHTS = {
+  professional: 60,
+  casual: 40,
+} as const;
+
+const DEFAULT_FORM_VALUES = {
+  original_url: '',
+  platform: 'twitter' as const,
+  link_ownership_type: 'third_party_content' as const,
+  tone_profile: [
+    {
+      tone: 'professional' as const,
+      weight: DEFAULT_TONE_WEIGHTS.professional,
+    },
+    { tone: 'casual' as const, weight: DEFAULT_TONE_WEIGHTS.casual },
+  ],
+};
+
+// Step configuration for the generation progress timeline
+type StepData = Record<string, unknown>;
+
+const STEP_CONFIG = {
+  analyzing: {
+    icon: <Search className="w-4 h-4" />,
+    title: 'Analyzing Content',
+    description: (data: StepData | undefined) =>
+      data && 'content_type' in data
+        ? `Found ${data.content_type} content for ${data.target_audience}`
+        : 'Extracting insights from your URL',
+  },
+  searching: {
+    icon: <FileText className="w-4 h-4" />,
+    title: 'Finding Similar Posts',
+    description: (data: StepData | undefined) =>
+      data && 'count' in data
+        ? `Found ${data.count} relevant examples`
+        : 'Searching for similar content patterns',
+  },
+  generating: {
+    icon: <Sparkles className="w-4 h-4" />,
+    title: 'Generating Post',
+    description: (data: StepData | undefined) =>
+      data && 'platform' in data
+        ? `Crafted for ${data.platform}`
+        : 'Creating your perfect social media post',
+  },
+} as const;
+
 // Timeline step component
 interface TimelineStepProps {
   icon: React.ReactNode;
@@ -146,12 +195,27 @@ function TimelineStep({
   );
 }
 
-// ToneSelector component for selecting tones and weights
+/**
+ * Props for the ToneSelector component
+ */
 interface ToneSelectorProps {
+  /** Current array of tone selections with their weights */
   value: Array<{ tone: string; weight: number }>;
+  /** Callback function called when tone selections change */
   onChange: (value: Array<{ tone: string; weight: number }>) => void;
 }
 
+/**
+ * ToneSelector component allows users to select writing tones and assign weights to each tone.
+ *
+ * Features:
+ * - Displays currently selected tones with weight inputs
+ * - Shows available tones that can be added
+ * - Validates that total weight doesn't exceed 100%
+ * - Provides visual feedback for weight distribution
+ *
+ * @param props - The component props containing current value and change handler
+ */
 function ToneSelector({ value, onChange }: ToneSelectorProps) {
   const availableTones = [
     { value: 'witty', label: 'Witty', description: 'Clever and humorous' },
@@ -399,8 +463,16 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
     .filter((part) => part.type === 'data-notification')
     .map((part) => part.data);
 
-  // Determine step statuses - only when there's activity
+  /**
+   * Determines the status of each generation step based on current state and data availability.
+   *
+   * The function implements a state machine where each step transitions from 'pending' → 'loading' → 'completed'
+   * based on the availability of data from the previous step and current submission status.
+   *
+   * @returns Array of step status objects with id, status, and data properties
+   */
   const getStepStatuses = () => {
+    // Early return if no activity - prevents showing empty progress when form is idle
     if (!isSubmitting && !contentAnalysis && !trainingPosts && !generatedPost) {
       return [];
     }
@@ -408,6 +480,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
     const steps = [
       {
         id: 'analyzing',
+        // Status logic: completed if data exists, loading if submitting, otherwise pending
         status: contentAnalysis
           ? 'completed'
           : isSubmitting
@@ -417,6 +490,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
       },
       {
         id: 'searching',
+        // Status logic: completed if data exists, loading if previous step completed and still submitting, otherwise pending
         status: trainingPosts
           ? 'completed'
           : contentAnalysis && isSubmitting
@@ -426,6 +500,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
       },
       {
         id: 'generating',
+        // Status logic: completed if data exists, loading if previous step completed and still submitting, otherwise pending
         status: generatedPost
           ? 'completed'
           : trainingPosts && isSubmitting
@@ -445,27 +520,11 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
 
   const form = useForm<CreatePostFormData>({
     resolver: zodResolver(createPostFormSchema),
-    defaultValues: {
-      original_url: '',
-      platform: 'twitter',
-      link_ownership_type: 'third_party_content',
-      tone_profile: [
-        { tone: 'professional', weight: 60 },
-        { tone: 'casual', weight: 40 },
-      ],
-    },
+    defaultValues: DEFAULT_FORM_VALUES,
   });
 
   const resetForm = () => {
-    form.reset({
-      original_url: '',
-      platform: 'twitter',
-      link_ownership_type: 'third_party_content',
-      tone_profile: [
-        { tone: 'professional', weight: 60 },
-        { tone: 'casual', weight: 40 },
-      ],
-    });
+    form.reset(DEFAULT_FORM_VALUES);
     clearError();
   };
 
@@ -674,42 +733,16 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                     {/* Timeline of steps */}
                     <div className="space-y-4">
                       {stepStatuses.map((step, index) => {
-                        const stepConfig = {
-                          analyzing: {
-                            icon: <Search className="w-4 h-4" />,
-                            title: 'Analyzing Content',
-                            description:
-                              step.data && 'content_type' in step.data
-                                ? `Found ${step.data.content_type} content for ${step.data.target_audience}`
-                                : 'Extracting insights from your URL',
-                          },
-                          searching: {
-                            icon: <FileText className="w-4 h-4" />,
-                            title: 'Finding Similar Posts',
-                            description:
-                              step.data && 'count' in step.data
-                                ? `Found ${step.data.count} relevant examples`
-                                : 'Searching for similar content patterns',
-                          },
-                          generating: {
-                            icon: <Sparkles className="w-4 h-4" />,
-                            title: 'Generating Post',
-                            description:
-                              step.data && 'platform' in step.data
-                                ? `Crafted for ${step.data.platform}`
-                                : 'Creating your perfect social media post',
-                          },
-                        };
-
                         const config =
-                          stepConfig[step.id as keyof typeof stepConfig];
+                          STEP_CONFIG[step.id as keyof typeof STEP_CONFIG];
+                        const description = config.description(step.data);
 
                         return (
                           <TimelineStep
                             key={step.id}
                             icon={config.icon}
                             title={config.title}
-                            description={config.description}
+                            description={description}
                             status={
                               step.status as
                                 | 'pending'
@@ -783,9 +816,6 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                             onClick={resetForm}
                           >
                             Create Another
-                          </Button>
-                          <Button className="h-10 px-4 bg-green-600 hover:bg-green-700 text-white shadow-sm min-w-0 flex-1 sm:flex-initial">
-                            Post to {generatedPost.platform}
                           </Button>
                         </div>
                       </CardContent>

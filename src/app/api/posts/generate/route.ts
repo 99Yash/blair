@@ -27,7 +27,6 @@ import {
   PROGRESS_STAGES,
   StreamingPostMessage,
 } from '~/lib/types/streaming';
-import { getErrorMessage } from '~/lib/utils';
 
 // Create a modified schema for the generate endpoint that doesn't require generated fields
 const generatePostSchema = postFormSchema.omit({
@@ -61,7 +60,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         message: 'Validation error',
-        errors: getErrorMessage(parseResult.error),
+        errors: parseResult.error.issues.map((issue) => issue.message),
       },
       { status: 400 }
     );

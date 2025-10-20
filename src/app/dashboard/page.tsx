@@ -12,5 +12,9 @@ export default async function DashboardPage() {
     redirect('/signin');
   }
 
+  if (session.user.email !== 'yashgouravkar@gmail.com') {
+    redirect('/create');
+  }
+
   return <PostForm />;
 }

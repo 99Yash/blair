@@ -22,7 +22,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -77,7 +76,7 @@ type StepData = Record<string, unknown>;
 const getStepConfig = () =>
   ({
     analyzing: {
-      icon: <CpuIcon size={18} className="shrink-0" />,
+      icon: <CpuIcon size={14} className="shrink-0" />,
       title: 'Analyzing Content',
       description: (data: StepData | undefined) =>
         data && 'content_type' in data
@@ -85,7 +84,7 @@ const getStepConfig = () =>
           : 'Extracting insights from your URL',
     },
     searching: {
-      icon: <FileTextIcon size={18} className="shrink-0" />,
+      icon: <FileTextIcon size={14} className="shrink-0" />,
       title: 'Finding Similar Posts',
       description: (data: StepData | undefined) =>
         data && 'count' in data
@@ -93,7 +92,7 @@ const getStepConfig = () =>
           : 'Searching for similar content patterns',
     },
     generating: {
-      icon: <PenToolIcon size={18} className="shrink-0" />,
+      icon: <PenToolIcon size={14} className="shrink-0" />,
       title: 'Generating Post',
       description: (data: StepData | undefined) =>
         data && 'platform' in data
@@ -123,175 +122,128 @@ function TimelineStep({
   const getStatusColor = () => {
     switch (status) {
       case 'completed':
-        return 'text-emerald-600 bg-emerald-50 border-emerald-200 shadow-sm shadow-emerald-100';
+        return 'text-[var(--color-status-done)] bg-[var(--color-success-card-bg)] border-[var(--color-success-border)]';
       case 'loading':
-        return 'text-blue-600 bg-blue-50 border-blue-300 shadow-sm shadow-blue-100';
+        return 'text-[var(--color-status-in-progress)] bg-muted border-border';
       case 'error':
-        return 'text-red-600 bg-red-50 border-red-200 shadow-sm shadow-red-100';
+        return 'text-[var(--color-status-cancelled)] bg-muted border-border';
       default:
-        return 'text-gray-400 bg-gray-50 border-gray-200';
+        return 'text-muted-foreground bg-muted border-border';
     }
   };
 
   const getIconColor = () => {
     switch (status) {
       case 'completed':
-        return 'text-emerald-600';
+        return 'text-[var(--color-status-done)]';
       case 'loading':
-        return 'text-blue-600';
+        return 'text-[var(--color-status-in-progress)]';
       case 'error':
-        return 'text-red-600';
+        return 'text-[var(--color-status-cancelled)]';
       default:
-        return 'text-gray-400';
+        return 'text-muted-foreground';
     }
   };
 
   const getTitleColor = () => {
     switch (status) {
       case 'completed':
-        return 'text-emerald-900';
+        return 'text-[var(--color-success-title)]';
       case 'loading':
-        return 'text-blue-900';
+        return 'text-foreground';
       case 'error':
-        return 'text-red-900';
+        return 'text-[var(--color-status-cancelled)]';
       default:
-        return 'text-gray-600';
+        return 'text-muted-foreground';
     }
   };
 
   const getDescriptionColor = () => {
     switch (status) {
       case 'completed':
-        return 'text-emerald-700';
+        return 'text-[var(--color-success-description)]';
       case 'loading':
-        return 'text-blue-700';
+        return 'text-muted-foreground';
       case 'error':
-        return 'text-red-700';
+        return 'text-[var(--color-status-cancelled)]';
       default:
-        return 'text-gray-500';
+        return 'text-muted-foreground';
     }
   };
 
   return (
     <motion.div
-      initial={{ opacity: 0, x: -20, scale: 0.95 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: 20, scale: 0.95 }}
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 10 }}
       transition={{
-        duration: 0.4,
-        delay: index * 0.1,
-        ease: [0.4, 0, 0.2, 1],
+        duration: 0.2,
+        delay: index * 0.05,
       }}
       className="relative"
     >
-      <div className="flex items-start gap-4">
+      <div className="flex items-start gap-2.5">
         {/* Icon with enhanced animations */}
         <motion.div
           animate={
             status === 'loading'
               ? {
-                  scale: [1, 1.1, 1],
-                  rotate: [0, 5, -5, 0],
+                  scale: [1, 1.05, 1],
                 }
               : {}
           }
           transition={{
-            duration: 2,
+            duration: 1.5,
             repeat: status === 'loading' ? Infinity : 0,
             ease: 'easeInOut',
           }}
-          className={`relative flex-shrink-0 w-10 h-10 rounded-xl border-2 flex items-center justify-center transition-all duration-300 ${getStatusColor()}`}
+          className={`relative flex-shrink-0 w-7 h-7 rounded-lg border flex items-center justify-center transition-all duration-300 ${getStatusColor()}`}
         >
-          <div className={getIconColor()}>
+          <motion.div
+            animate={{ scale: [1, 1.04, 1], rotate: [0, 3, -3, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            className={getIconColor()}
+          >
             {status === 'loading' ? (
-              <motion.div
-                animate={{
-                  scale: [1, 1.2, 1],
-                }}
-                transition={{
-                  duration: 1.5,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              >
-                {icon}
-              </motion.div>
+              icon
             ) : status === 'completed' ? (
-              <motion.div
-                initial={{ scale: 0, rotate: -180 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-              >
-                <CheckCircle className="w-5 h-5" />
-              </motion.div>
+              <CheckCircle className="w-4 h-4" />
             ) : status === 'error' ? (
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ type: 'spring', stiffness: 200, damping: 15 }}
-              >
-                <AlertCircle className="w-5 h-5" />
-              </motion.div>
+              <AlertCircle className="w-4 h-4" />
             ) : (
               icon
             )}
-          </div>
-
-          {/* Pulse effect for loading state */}
-          {status === 'loading' && (
-            <motion.div
-              className="absolute inset-0 rounded-xl bg-blue-400"
-              initial={{ opacity: 0.6, scale: 1 }}
-              animate={{ opacity: 0, scale: 1.5 }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                ease: 'easeOut',
-              }}
-            />
-          )}
+          </motion.div>
         </motion.div>
 
         {/* Content */}
-        <div className="flex-1 min-w-0 pb-8">
-          <motion.div
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.1 + 0.2, duration: 0.3 }}
-            className="space-y-1"
-          >
-            <div className="flex items-center gap-2">
-              <h3
-                className={`text-sm font-semibold transition-colors duration-300 ${getTitleColor()}`}
-              >
-                {title}
-              </h3>
-            </div>
+        <div className="flex-1 min-w-0 pb-6">
+          <div className="space-y-0.5">
+            <h3
+              className={`text-xs font-semibold transition-colors duration-300 ${getTitleColor()}`}
+            >
+              {title}
+            </h3>
             <AnimatePresence mode="wait">
               {description && (
                 <motion.p
                   key={description}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.3 }}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.2 }}
                   className={`text-xs leading-relaxed transition-colors duration-300 ${getDescriptionColor()}`}
                 >
                   {description}
                 </motion.p>
               )}
             </AnimatePresence>
-          </motion.div>
+          </div>
         </div>
 
         {/* Connector line */}
         {!isLast && (
-          <motion.div
-            initial={{ scaleY: 0 }}
-            animate={{ scaleY: 1 }}
-            transition={{ delay: index * 0.1 + 0.3, duration: 0.4 }}
-            className="absolute left-5 top-10 w-0.5 h-full -mb-8 bg-gradient-to-b from-gray-300 to-transparent origin-top"
-          />
+          <div className="absolute left-3.5 top-7 w-px h-full -mb-6 bg-gray-200" />
         )}
       </div>
     </motion.div>
@@ -377,45 +329,38 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
   const remainingWeight = 100 - totalWeight;
 
   return (
-    <div className="space-y-4">
-      <div className="space-y-1">
-        <label className="text-sm font-semibold text-foreground">
+    <div className="space-y-3">
+      <div className="space-y-0.5">
+        <label className="text-xs font-semibold text-foreground">
           Tone Profile
         </label>
         <p className="text-xs text-muted-foreground">
-          Select tones and assign weights (total should equal 100)
+          Assign weights (total = 100)
         </p>
       </div>
 
       {/* Selected tones */}
       <AnimatePresence mode="popLayout">
-        <div className="space-y-2">
+        <div className="space-y-1.5">
           {value.map((tone, index) => (
             <motion.div
               key={tone.tone}
-              initial={{ opacity: 0, scale: 0.9, y: -10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, x: -20 }}
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
               transition={{
-                duration: 0.3,
-                delay: index * 0.05,
-                ease: [0.4, 0, 0.2, 1],
+                duration: 0.2,
+                delay: index * 0.03,
               }}
               layout
-              className="flex items-center gap-3 p-3 bg-gradient-to-r from-muted/40 to-muted/20 rounded-lg border border-border/50 shadow-sm hover:shadow-md hover:border-border transition-all duration-200"
+              className="flex items-center gap-2 p-2 bg-muted/30 rounded-lg border border-border/50 hover:border-border transition-colors"
             >
               <div className="flex-1 min-w-0">
-                <div className="font-semibold text-sm text-foreground">
+                <div className="font-semibold text-xs text-foreground">
                   {availableTones.find((t) => t.value === tone.tone)?.label}
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  {
-                    availableTones.find((t) => t.value === tone.tone)
-                      ?.description
-                  }
-                </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <Input
                   type="number"
                   min="0"
@@ -424,10 +369,10 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
                   onChange={(e) =>
                     updateWeight(tone.tone, parseInt(e.target.value) || 0)
                   }
-                  className="w-16 h-9 text-sm font-medium text-center shadow-sm transition-all duration-200 focus:ring-2 focus:ring-primary/30"
+                  className="w-14 h-7 text-xs font-medium text-center"
                   placeholder="0"
                 />
-                <span className="text-sm font-medium text-muted-foreground w-6">
+                <span className="text-xs font-medium text-muted-foreground w-4">
                   %
                 </span>
                 <Button
@@ -435,7 +380,7 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
                   variant="ghost"
                   size="sm"
                   onClick={() => removeTone(tone.tone)}
-                  className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-all duration-200"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
                 >
                   ×
                 </Button>
@@ -451,51 +396,29 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-2"
+          transition={{ duration: 0.2 }}
+          className="space-y-1.5"
         >
-          <label className="text-sm font-semibold text-muted-foreground">
-            Add More Tones
+          <label className="text-xs font-semibold text-muted-foreground">
+            Add More
           </label>
-          <div className="grid grid-cols-1 gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {availableTones
               .filter(
                 (tone) =>
                   !value.some((selected) => selected.tone === tone.value)
               )
-              .map((tone, index) => (
-                <motion.div
+              .map((tone) => (
+                <Button
                   key={tone.value}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05, duration: 0.2 }}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addTone(tone.value)}
+                  className="h-7 px-2.5 text-xs border-dashed hover:bg-muted/50 hover:border-primary/50"
                 >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => addTone(tone.value)}
-                    className="w-full h-auto p-3 text-left justify-start border-dashed border-border/50 hover:bg-muted/50 hover:border-primary/50 transition-all duration-200 shadow-sm hover:shadow-md group"
-                  >
-                    <div className="flex items-center gap-2 w-full">
-                      <div className="flex-1">
-                        <div className="font-semibold text-sm text-foreground group-hover:text-primary transition-colors">
-                          {tone.label}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-0.5">
-                          {tone.description}
-                        </div>
-                      </div>
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="text-primary opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        +
-                      </motion.div>
-                    </div>
-                  </Button>
-                </motion.div>
+                  {tone.label}
+                </Button>
               ))}
           </div>
         </motion.div>
@@ -504,50 +427,50 @@ function ToneSelector({ value, onChange }: ToneSelectorProps) {
       {/* Weight summary with progress bar */}
       <motion.div
         layout
-        className={`p-4 rounded-lg border transition-all duration-300 ${
+        className={`p-2.5 rounded-lg border transition-all duration-300 ${
           remainingWeight === 0
-            ? 'bg-emerald-50/50 border-emerald-200/50 shadow-sm shadow-emerald-100/50'
+            ? 'bg-[var(--color-success-card-bg)] border-[var(--color-success-card-border)]'
             : remainingWeight < 0
-            ? 'bg-red-50/50 border-red-200/50 shadow-sm shadow-red-100/50'
+            ? 'bg-muted border-border'
             : 'bg-muted/20 border-border/30'
         }`}
       >
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-sm text-foreground">
-            <span className="font-semibold">Total Weight:</span>{' '}
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="text-xs text-foreground">
+            <span className="font-semibold">Total:</span>{' '}
             <span className="font-bold">{totalWeight}</span>/100
           </div>
           <motion.div
             key={remainingWeight}
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className={`text-xs font-semibold px-2 py-1 rounded-full ${
+            className={`text-xs font-semibold px-1.5 py-0.5 rounded ${
               remainingWeight === 0
-                ? 'bg-emerald-100 text-emerald-700'
+                ? 'bg-[color-mix(in_srgb,var(--color-status-done),var(--color-card)_90%)] text-[var(--color-success-button-text)]'
                 : remainingWeight < 0
-                ? 'bg-red-100 text-red-700'
+                ? 'bg-muted text-[var(--color-status-cancelled)]'
                 : 'bg-muted text-muted-foreground'
             }`}
           >
             {remainingWeight > 0
-              ? `${remainingWeight} remaining`
+              ? `${remainingWeight} left`
               : remainingWeight < 0
               ? `${Math.abs(remainingWeight)} over`
-              : '✓ Perfect!'}
+              : '✓'}
           </motion.div>
         </div>
         {/* Progress bar */}
-        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+        <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
           <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${Math.min(totalWeight, 100)}%` }}
-            transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
             className={`h-full transition-colors duration-300 ${
               remainingWeight === 0
-                ? 'bg-gradient-to-r from-emerald-500 to-emerald-400'
+                ? 'bg-[var(--color-status-done)]'
                 : remainingWeight < 0
-                ? 'bg-gradient-to-r from-red-500 to-red-400'
-                : 'bg-gradient-to-r from-primary to-primary/80'
+                ? 'bg-[var(--color-status-cancelled)]'
+                : 'bg-primary'
             }`}
           />
         </div>
@@ -780,12 +703,12 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
 
   return (
     <div className={className}>
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <motion.div
           layout
-          className={`grid gap-6 lg:gap-8 transition-all duration-500 ${
+          className={`grid gap-4 lg:gap-6 transition-all duration-500 ${
             shouldShowProgress || generatedPost
-              ? 'lg:grid-cols-2'
+              ? 'lg:grid-cols-[400px_1fr]'
               : 'lg:grid-cols-1 lg:max-w-2xl lg:mx-auto'
           }`}
         >
@@ -793,58 +716,54 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+            className="lg:h-fit lg:sticky lg:top-4"
           >
-            <Card className="shadow-lg border border-border/50 bg-gradient-to-br from-card to-card/95 overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/3 via-transparent to-transparent pointer-events-none" />
-              <CardHeader className="pb-4 border-b border-border/50 relative">
-                <div className="flex items-center gap-3">
-                  <motion.div
-                    initial={{ rotate: -10, scale: 0.8 }}
-                    animate={{ rotate: 0, scale: 1 }}
-                    transition={{
-                      type: 'spring',
-                      stiffness: 200,
-                      damping: 15,
-                      delay: 0.1,
-                    }}
-                    className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 shadow-sm"
-                  >
-                    <Sparkles className="w-5 h-5 text-primary" />
-                  </motion.div>
+            <Card className="shadow-lg border border-border/50 overflow-hidden">
+              <CardHeader className="pb-3 border-b border-border/50 relative">
+                <div className="flex items-center gap-2.5">
+                  <div className="p-1.5 rounded-lg bg-primary/10">
+                    <motion.div
+                      animate={{ rotate: [0, 8, -8, 0], scale: [1, 1.05, 1] }}
+                      transition={{
+                        duration: 2.2,
+                        repeat: Infinity,
+                        ease: 'easeInOut',
+                      }}
+                    >
+                      <Sparkles className="w-4 h-4 text-primary" />
+                    </motion.div>
+                  </div>
                   <div className="flex-1">
-                    <CardTitle className="text-lg font-bold">
+                    <CardTitle className="text-base font-bold">
                       Generate Social Post
                     </CardTitle>
-                    <CardDescription className="text-sm mt-0.5">
-                      AI-powered content creation from any URL
+                    <CardDescription className="text-xs mt-0.5">
+                      AI-powered content creation
                     </CardDescription>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-5 pt-6 relative">
+              <CardContent className="space-y-4 pt-4 relative">
                 <Form {...form}>
                   <form
                     onSubmit={form.handleSubmit(onSubmit)}
-                    className="space-y-5"
+                    className="space-y-3.5"
                   >
                     <FormField
                       control={form.control}
                       name="original_url"
                       render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel className="text-sm font-semibold text-foreground">
+                        <FormItem className="space-y-1.5">
+                          <FormLabel className="text-xs font-semibold text-foreground">
                             URL *
                           </FormLabel>
                           <FormControl>
                             <Input
                               placeholder="https://example.com/article"
-                              className="h-11 transition-all duration-200 focus:ring-2 focus:ring-primary/30 focus:border-primary shadow-sm"
+                              className="h-9 text-sm"
                               {...field}
                             />
                           </FormControl>
-                          <FormDescription className="text-xs text-muted-foreground">
-                            The URL you want to create a social media post about
-                          </FormDescription>
                           <FormMessage className="text-xs" />
                         </FormItem>
                       )}
@@ -854,8 +773,8 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                       control={form.control}
                       name="platform"
                       render={({ field }) => (
-                        <FormItem className="space-y-2">
-                          <FormLabel className="text-sm font-semibold text-foreground">
+                        <FormItem className="space-y-1.5">
+                          <FormLabel className="text-xs font-semibold text-foreground">
                             Platform *
                           </FormLabel>
                           <FormControl>
@@ -875,14 +794,14 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                       control={form.control}
                       name="link_ownership_type"
                       render={({ field }) => (
-                        <FormItem className="space-y-3">
+                        <FormItem className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <FormLabel className="text-sm font-semibold text-foreground">
+                            <FormLabel className="text-xs font-semibold text-foreground">
                               Content Ownership *
                             </FormLabel>
                             <div className="flex items-center space-x-2">
                               <span
-                                className={`text-sm transition-colors ${
+                                className={`text-xs transition-colors ${
                                   !field.value ||
                                   field.value === 'third_party_content'
                                     ? 'text-muted-foreground'
@@ -903,7 +822,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                                 className="data-[state=checked]:bg-primary"
                               />
                               <span
-                                className={`text-sm transition-colors ${
+                                className={`text-xs transition-colors ${
                                   field.value === 'own_content'
                                     ? 'text-foreground font-medium'
                                     : 'text-muted-foreground'
@@ -913,10 +832,6 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                               </span>
                             </div>
                           </div>
-                          <FormDescription className="text-xs text-muted-foreground">
-                            Toggle to indicate whether this is your own content
-                            or third-party content
-                          </FormDescription>
                           <FormMessage className="text-xs" />
                         </FormItem>
                       )}
@@ -926,7 +841,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                       control={form.control}
                       name="tone_profile"
                       render={({ field }) => (
-                        <FormItem className="space-y-3">
+                        <FormItem className="space-y-2">
                           <FormControl>
                             <ToneSelector
                               value={field.value}
@@ -938,21 +853,21 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                       )}
                     />
 
-                    <div className="pt-1">
+                    <div className="pt-2">
                       <Button
                         type="submit"
-                        className="w-full h-12 text-base font-semibold transition-all hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-primary to-primary/90"
+                        className="w-full h-10 text-sm font-semibold"
                         disabled={isSubmitting}
                       >
                         {isSubmitting ? (
                           <>
-                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                            Generating Post...
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Generating...
                           </>
                         ) : (
                           <>
-                            <Sparkles className="w-5 h-5 mr-2" />
-                            Generate Social Media Post
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Generate Post
                           </>
                         )}
                       </Button>
@@ -977,16 +892,16 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
             >
               {shouldShowProgress && (
                 <motion.div
-                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                  transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
                 >
-                  <Card className="shadow-lg border border-border/50 bg-gradient-to-br from-card to-card/50 backdrop-blur-sm overflow-hidden relative">
+                  <Card className="shadow-lg border border-border overflow-hidden relative">
                     {/* Animated top border when loading */}
                     {isSubmitting && (
                       <motion.div
-                        className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/60 to-primary origin-left"
+                        className="absolute top-0 left-0 right-0 h-0.5 bg-[var(--color-status-in-progress)]"
                         initial={{ scaleX: 0 }}
                         animate={{ scaleX: 1 }}
                         transition={{
@@ -996,36 +911,34 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                         }}
                       />
                     )}
-                    <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
-                    <CardHeader className="pb-4 relative">
-                      <div className="flex items-center gap-3">
-                        <motion.div
-                          animate={{
-                            rotate: isSubmitting ? [0, 10, -10, 0] : 0,
-                            scale: isSubmitting ? [1, 1.1, 1] : 1,
-                          }}
-                          transition={{
-                            duration: 2,
-                            repeat: isSubmitting ? Infinity : 0,
-                            ease: 'easeInOut',
-                          }}
-                          className="p-2 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 shadow-sm"
-                        >
-                          <Zap className="w-5 h-5 text-primary" />
-                        </motion.div>
+                    <CardHeader className="pb-3 relative">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-1.5 rounded-lg bg-primary/10">
+                          <motion.div
+                            animate={{
+                              rotate: [0, 10, -10, 0],
+                              scale: [1, 1.06, 1],
+                            }}
+                            transition={{
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: 'easeInOut',
+                            }}
+                          >
+                            <Zap className="w-4 h-4 text-primary" />
+                          </motion.div>
+                        </div>
                         <div className="flex-1">
-                          <CardTitle className="text-lg font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                          <CardTitle className="text-base font-bold">
                             Generation Progress
                           </CardTitle>
-                          <CardDescription className="text-sm text-muted-foreground mt-0.5">
-                            {isSubmitting
-                              ? 'AI is working its magic...'
-                              : 'Generation complete'}
+                          <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                            {isSubmitting ? 'Processing...' : 'Complete'}
                           </CardDescription>
                         </div>
                       </div>
                     </CardHeader>
-                    <CardContent className="space-y-2">
+                    <CardContent className="space-y-1">
                       {/* Timeline of steps with progressive reveal */}
                       <AnimatePresence mode="sync">
                         <div className="space-y-0">
@@ -1069,57 +982,34 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                 errorNotifications.map((notification, index) => (
                   <AnimatePresence key={`error-${index}`}>
                     <motion.div
-                      initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                      transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.3 }}
                     >
-                      <Card className="border-red-200/50 bg-gradient-to-br from-red-50/50 to-card overflow-hidden relative shadow-lg">
-                        <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent pointer-events-none" />
+                      <Card className="border-[var(--color-success-border)] overflow-hidden relative shadow-lg">
                         <CardHeader className="pb-3 relative">
-                          <motion.div
-                            initial={{ scale: 0 }}
-                            animate={{ scale: 1 }}
-                            transition={{
-                              type: 'spring',
-                              stiffness: 200,
-                              damping: 20,
-                              delay: 0.1,
-                            }}
-                            className="flex items-center gap-3"
-                          >
-                            <div className="p-2 rounded-xl bg-gradient-to-br from-red-500/20 to-red-400/10 shadow-sm">
-                              <AlertCircle className="w-5 h-5 text-red-600" />
+                          <div className="flex items-center gap-2.5">
+                            <div className="p-1.5 rounded-lg bg-[var(--color-destructive)]/10">
+                              <AlertCircle className="w-4 h-4 text-[var(--color-destructive)]" />
                             </div>
-                            <CardTitle className="text-base font-bold text-red-900">
+                            <CardTitle className="text-base font-bold text-[var(--color-destructive)]">
                               Error
                             </CardTitle>
-                          </motion.div>
+                          </div>
                         </CardHeader>
-                        <CardContent className="relative">
-                          <motion.p
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.2 }}
-                            className="text-sm text-red-700"
-                          >
+                        <CardContent className="relative space-y-3">
+                          <p className="text-sm text-[var(--color-destructive-foreground)]">
                             {notification.message}
-                          </motion.p>
-                          <motion.div
-                            initial={{ opacity: 0, y: 5 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.3 }}
-                            className="mt-4"
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={resetForm}
+                            className="h-9 px-3 text-xs border-[var(--color-destructive)]/40 text-[var(--color-destructive-foreground)] hover:bg-[var(--color-destructive)]/10 hover:border-[var(--color-destructive)]/60 font-medium"
                           >
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={resetForm}
-                              className="h-10 px-4 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 transition-all duration-200 font-medium"
-                            >
-                              Try Again
-                            </Button>
-                          </motion.div>
+                            Try Again
+                          </Button>
                         </CardContent>
                       </Card>
                     </motion.div>
@@ -1132,60 +1022,45 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                   <motion.div
                     key="generated-post"
                     layout
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                    transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
                   >
-                    <Card className="shadow-xl border-emerald-200/50 bg-gradient-to-br from-emerald-50/50 to-card overflow-hidden relative">
-                      {/* Success confetti effect */}
-                      <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
-
-                      <CardHeader className="pb-4 relative border-b border-emerald-200/50">
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{
-                            type: 'spring',
-                            stiffness: 200,
-                            damping: 20,
-                            delay: 0.2,
-                          }}
-                          className="flex items-center gap-3"
-                        >
-                          <motion.div
-                            animate={{
-                              rotate: [0, 10, -10, 0],
-                            }}
-                            transition={{
-                              duration: 0.6,
-                              delay: 0.3,
-                            }}
-                            className="p-2.5 rounded-xl bg-gradient-to-br from-emerald-500/20 to-emerald-400/10 shadow-sm"
-                          >
-                            <CheckCircle className="w-6 h-6 text-emerald-600" />
-                          </motion.div>
+                    <Card className="shadow-lg border-[var(--color-success-card-border)] overflow-hidden relative">
+                      <CardHeader className="pb-3 relative border-b border-[var(--color-success-card-border)]">
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-[var(--color-success-icon-bg)]">
+                            <motion.div
+                              animate={{
+                                scale: [1, 1.08, 1],
+                                rotate: [0, 6, -6, 0],
+                              }}
+                              transition={{
+                                duration: 2.2,
+                                repeat: Infinity,
+                                ease: 'easeInOut',
+                              }}
+                            >
+                              <CheckCircle className="w-4 h-4 text-[var(--color-status-done)]" />
+                            </motion.div>
+                          </div>
                           <div className="flex-1">
-                            <CardTitle className="text-lg font-bold text-emerald-900">
-                              Post Generated Successfully
+                            <CardTitle className="text-base font-bold text-[var(--color-success-title)]">
+                              Generated Post
                             </CardTitle>
-                            <CardDescription className="text-sm text-emerald-700/80 mt-0.5">
-                              Ready to share on {generatedPost.platform}
+                            <CardDescription className="text-xs text-[var(--color-success-description)] mt-0.5">
+                              Ready for {generatedPost.platform}
                             </CardDescription>
                           </div>
-                        </motion.div>
+                        </div>
                       </CardHeader>
-                      <CardContent className="space-y-5 pt-5 relative">
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.3, duration: 0.4 }}
-                          className="p-5 bg-card rounded-xl border border-emerald-200/50 shadow-sm relative overflow-hidden"
-                        >
+                      <CardContent className="space-y-3 pt-4 relative">
+                        <div className="p-4 bg-card rounded-lg border border-[var(--color-success-card-border)] relative overflow-hidden">
                           {/* Animated border glow effect */}
                           {status === 'streaming' && (
                             <motion.div
-                              className="absolute inset-0 border-2 border-emerald-400/30 rounded-xl"
+                              className="absolute inset-0 border border-[var(--color-success-border)] rounded-lg"
                               animate={{
                                 opacity: [0.5, 1, 0.5],
                               }}
@@ -1197,23 +1072,19 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                             />
                           )}
                           <Streamdown
-                            className="prose prose-sm max-w-none text-foreground relative"
+                            className="prose prose-sm max-w-none text-foreground relative [&_p]:my-2 [&_h1]:mt-4 [&_h1]:mb-2 [&_h2]:mt-3 [&_h2]:mb-2 [&_h3]:mt-2 [&_h3]:mb-1"
                             parseIncompleteMarkdown={true}
                             controls={true}
                             isAnimating={status === 'streaming'}
                           >
                             {generatedPost.content}
                           </Streamdown>
-                        </motion.div>
-                        <motion.div
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.4, duration: 0.4 }}
-                          className="flex flex-col sm:flex-row gap-3"
-                        >
+                        </div>
+                        <div className="flex gap-2">
                           <Button
                             variant="outline"
-                            className="h-11 px-5 border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400 transition-all duration-200 min-w-0 flex-1 sm:flex-initial font-medium shadow-sm"
+                            size="sm"
+                            className="h-9 px-3 text-xs border-[var(--color-success-button-border)] text-[var(--color-success-button-text)] hover:bg-[var(--color-success-button-bg-hover)] hover:border-[var(--color-success-border-hover)] font-medium flex-1"
                             onClick={() => {
                               navigator.clipboard.writeText(
                                 generatedPost.content
@@ -1221,16 +1092,17 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                               toast.success('Copied to clipboard');
                             }}
                           >
-                            Copy to Clipboard
+                            Copy
                           </Button>
                           <Button
                             variant="outline"
-                            className="h-11 px-5 border-border hover:bg-muted hover:border-border/80 transition-all duration-200 min-w-0 flex-1 sm:flex-initial font-medium shadow-sm"
+                            size="sm"
+                            className="h-9 px-3 text-xs border-border hover:bg-muted font-medium flex-1"
                             onClick={resetForm}
                           >
                             Create Another
                           </Button>
-                        </motion.div>
+                        </div>
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -1241,56 +1113,55 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
               {error && !hasApplicationError && (
                 <AnimatePresence>
                   <motion.div
-                    initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                    transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
                   >
-                    <Card className="border-red-200/50 bg-gradient-to-br from-red-50/50 to-card overflow-hidden relative shadow-lg">
-                      <div className="absolute inset-0 bg-gradient-to-br from-red-500/10 via-transparent to-transparent pointer-events-none" />
+                    <Card className="border-[var(--color-success-border)] overflow-hidden relative shadow-lg">
                       <CardHeader className="pb-3 relative">
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{
-                            type: 'spring',
-                            stiffness: 200,
-                            damping: 20,
-                            delay: 0.1,
-                          }}
-                          className="flex items-center gap-3"
-                        >
-                          <div className="p-2 rounded-xl bg-gradient-to-br from-red-500/20 to-red-400/10 shadow-sm">
-                            <AlertCircle className="w-5 h-5 text-red-600" />
+                        <div className="flex items-center gap-2.5">
+                          <div className="p-1.5 rounded-lg bg-[var(--color-destructive)]/10">
+                            <motion.div
+                              animate={{ scale: [1, 1.06, 1] }}
+                              transition={{
+                                duration: 1.8,
+                                repeat: Infinity,
+                                ease: 'easeInOut',
+                              }}
+                            >
+                              <AlertCircle className="w-4 h-4 text-[var(--color-destructive)]" />
+                            </motion.div>
                           </div>
-                          <CardTitle className="text-base font-bold text-red-900">
+                          <div className="p-1.5 rounded-lg bg-[var(--color-destructive)]/10">
+                            <motion.div
+                              animate={{ scale: [1, 1.06, 1] }}
+                              transition={{
+                                duration: 1.8,
+                                repeat: Infinity,
+                                ease: 'easeInOut',
+                              }}
+                            >
+                              <AlertCircle className="w-4 h-4 text-[var(--color-destructive)]" />
+                            </motion.div>
+                          </div>
+                          <CardTitle className="text-base font-bold text-[var(--color-destructive)]">
                             Connection Error
                           </CardTitle>
-                        </motion.div>
+                        </div>
                       </CardHeader>
-                      <CardContent className="relative">
-                        <motion.p
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.2 }}
-                          className="text-sm text-red-700 mb-4"
-                        >
+                      <CardContent className="relative space-y-3">
+                        <p className="text-sm text-[var(--color-destructive-foreground)]">
                           {error.message}
-                        </motion.p>
-                        <motion.div
-                          initial={{ opacity: 0, y: 5 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: 0.3 }}
+                        </p>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={resetForm}
+                          className="h-9 px-3 text-xs border-[var(--color-destructive)]/40 text-[var(--color-destructive-foreground)] hover:bg-[var(--color-destructive)]/10 hover:border-[var(--color-destructive)]/60 font-medium"
                         >
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={resetForm}
-                            className="h-10 px-4 border-red-300 text-red-700 hover:bg-red-50 hover:border-red-400 transition-all duration-200 font-medium"
-                          >
-                            Try Again
-                          </Button>
-                        </motion.div>
+                          Try Again
+                        </Button>
                       </CardContent>
                     </Card>
                   </motion.div>

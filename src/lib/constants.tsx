@@ -102,10 +102,6 @@ export const LOCAL_STORAGE_SCHEMAS = {
   LAST_AUTH_METHOD: authOptionsSchema,
 } as const;
 
-export const SESSION_STORAGE_SCHEMAS = {
-  SHOW_USERNAME_MODAL: z.boolean().default(false),
-} as const;
-
 export const ISSUE_STATUS_OPTIONS = [
   {
     value: 'backlog',
@@ -203,12 +199,6 @@ export type LocalStorageKey = keyof typeof LOCAL_STORAGE_SCHEMAS;
 
 export type LocalStorageValue<K extends LocalStorageKey> = z.infer<
   (typeof LOCAL_STORAGE_SCHEMAS)[K] & z.ZodTypeAny
->;
-
-export type SessionStorageKey = keyof typeof SESSION_STORAGE_SCHEMAS;
-
-export type SessionStorageValue<K extends SessionStorageKey> = z.infer<
-  (typeof SESSION_STORAGE_SCHEMAS)[K] & z.ZodTypeAny
 >;
 
 interface OAuthProvider {

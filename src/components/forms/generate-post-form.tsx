@@ -19,8 +19,6 @@ import {
   CardHeader,
   CardTitle,
 } from '~/components/ui/card';
-import { CpuIcon } from '~/components/ui/cpu';
-import { FileTextIcon } from '~/components/ui/file-text';
 import {
   Form,
   FormControl,
@@ -31,10 +29,12 @@ import {
   FormMessage,
 } from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
-import { PenToolIcon } from '~/components/ui/pen-tool';
 import { SelectWithComboboxAPI, type Item } from '~/components/ui/select';
 import { Switch } from '~/components/ui/switch';
 import { type StreamingPostMessage } from '~/lib/types/streaming';
+import { CpuIcon } from '../ui/cpu';
+import { FileTextIcon } from '../ui/file-text';
+import { PenToolIcon } from '../ui/pen-tool';
 
 // Default tone profile constants
 const DEFAULT_TONE_WEIGHTS = {

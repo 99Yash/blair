@@ -20,21 +20,23 @@ import {
   FieldLabel,
 } from '~/components/ui/field';
 import { Input } from '~/components/ui/input';
-import { Item, SelectWithComboboxAPI } from '~/components/ui/select';
+import { SingleSelect } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
 
 import * as React from 'react';
 import { GENERATED_POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
 import { postFormSchema, type PostFormData } from '~/lib/schemas/post';
 
-const PLATFORMS: Item[] = [
+type OptionItem = { value: string; label: string };
+
+const PLATFORMS: OptionItem[] = [
   { value: 'twitter', label: 'Twitter' },
   { value: 'instagram', label: 'Instagram' },
   { value: 'facebook', label: 'Facebook' },
   { value: 'linkedin', label: 'LinkedIn' },
 ];
 
-const OWNERSHIP_TYPES: Item[] = [
+const OWNERSHIP_TYPES: OptionItem[] = [
   { value: 'own_content', label: 'Own Content' },
   { value: 'third_party_content', label: 'Third Party Content' },
 ];
@@ -237,10 +239,12 @@ export function PostForm() {
                 render={({ field }) => (
                   <Field>
                     <FieldLabel>Platform</FieldLabel>
-                    <SelectWithComboboxAPI
+                    <SingleSelect
                       options={PLATFORMS}
                       value={field.value}
                       setValue={field.onChange}
+                      getLabel={(option) => option.label}
+                      getValue={(option) => option.value}
                       placeholder="Select platform"
                     />
                     <FieldError
@@ -264,10 +268,12 @@ export function PostForm() {
                 render={({ field }) => (
                   <Field>
                     <FieldLabel>Link Ownership</FieldLabel>
-                    <SelectWithComboboxAPI
+                    <SingleSelect
                       options={OWNERSHIP_TYPES}
                       value={field.value}
                       setValue={field.onChange}
+                      getLabel={(option) => option.label}
+                      getValue={(option) => option.value}
                       placeholder="Select ownership type"
                     />
                     <FieldError

@@ -1,157 +1,9 @@
 'use client';
 
 import * as SelectPrimitive from '@radix-ui/react-select';
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  Hash,
-  LucideIcon,
-} from 'lucide-react';
+import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from 'lucide-react';
 import * as React from 'react';
-
 import { cn } from '~/lib/utils';
-import { AnimatedContainer } from './animated-container';
-import { Scroll } from './scroll';
-
-type Item = {
-  value: string;
-  label: string;
-  icon?: React.ComponentType<React.SVGProps<SVGElement>> | LucideIcon;
-  group?: string;
-};
-
-interface SelectWithComboboxAPIProps {
-  options: Item[];
-  value: string;
-  setValue: (value: string) => void;
-  matchTriggerWidth?: boolean;
-  trigger?: React.ReactNode;
-  onClose?: () => void;
-  placeholder?: string;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}
-
-function SelectWithComboboxAPI({
-  options,
-  value,
-  setValue,
-  trigger,
-  onClose,
-  open: controlledOpen,
-  onOpenChange: controlledOnOpenChange,
-  matchTriggerWidth,
-  placeholder = 'Select an option...',
-  ...rest
-}: SelectWithComboboxAPIProps) {
-  const [internalOpen, setInternalOpen] = React.useState(false);
-
-  const open = controlledOpen ?? internalOpen;
-  const setOpen = controlledOnOpenChange ?? setInternalOpen;
-
-  const groupedItems = options.reduce((acc, item) => {
-    if (item.group) {
-      // Group items by their group
-      if (!acc[item.group]) {
-        acc[item.group] = [];
-      }
-      acc[item.group].push(item);
-    } else {
-      // Handle items without a group
-      if (!acc.ungrouped) {
-        acc.ungrouped = [];
-      }
-      acc.ungrouped.push(item);
-    }
-    return acc;
-  }, {} as Record<string, Item[]>);
-
-  React.useEffect(() => {
-    if (!open) return;
-
-    const handleNumberKeyPress = (e: KeyboardEvent) => {
-      if (e.key >= '1' && e.key <= '9') {
-        e.preventDefault();
-        const index = parseInt(e.key, 10) - 1;
-        if (index < options.length) {
-          setValue(options[index].value);
-          setOpen(false);
-        }
-      }
-    };
-
-    document.addEventListener('keydown', handleNumberKeyPress);
-    return () => document.removeEventListener('keydown', handleNumberKeyPress);
-  }, [open, options, setOpen, setValue]);
-
-  return (
-    <SelectPrimitive.Root
-      value={value}
-      onValueChange={(newValue) => {
-        setValue(newValue);
-        setOpen(false);
-        onClose?.();
-      }}
-      open={open}
-      onOpenChange={setOpen}
-      {...rest}
-    >
-      <SelectTrigger>
-        {trigger || (
-          <div className="flex items-center line-clamp-1 gap-2">
-            {(() => {
-              const option = options.find((item) => item.value === value);
-              return option?.icon ? (
-                <option.icon className="size-4 shrink-0" />
-              ) : value ? null : (
-                <Hash className="size-4 shrink-0" />
-              );
-            })()}
-            {value
-              ? options.find((option) => option.value === value)?.label
-              : placeholder}
-          </div>
-        )}
-      </SelectTrigger>
-      <SelectContent
-        className={cn(matchTriggerWidth && 'w-[--radix-select-trigger-width]')}
-      >
-        <AnimatedContainer
-          height
-          style={{ transform: 'translateZ(0)' }}
-          transition={{ ease: 'easeInOut', duration: 0.05 }}
-        >
-          <Scroll>
-            {Object.entries(groupedItems).map(([groupName, items]) => (
-              <SelectGroup key={groupName}>
-                {groupName !== 'ungrouped' && (
-                  <SelectLabel>{groupName}</SelectLabel>
-                )}
-                {items.map((item, index) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    <div className="flex items-center gap-2">
-                      {item.icon && <item.icon className="size-4 shrink-0" />}
-                      {item.label}
-                    </div>
-                    <span className="ml-auto flex items-center gap-2">
-                      <SelectPrimitive.ItemIndicator>
-                        <CheckIcon className="size-4" />
-                      </SelectPrimitive.ItemIndicator>
-                      {index < 9 && (
-                        <span className="text-xs opacity-50">{index + 1}</span>
-                      )}
-                    </span>
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            ))}
-          </Scroll>
-        </AnimatedContainer>
-      </SelectContent>
-    </SelectPrimitive.Root>
-  );
-}
 
 function Select({
   ...props
@@ -320,6 +172,106 @@ function SelectScrollDownButton({
   );
 }
 
+export type SingleSelectProps<T> = {
+  options: T[];
+  value?: string;
+  setValue: (value: string) => void;
+  getLabel: (option: T) => string;
+  getValue: (option: T) => string;
+  getIcon?: (option: T) => React.ReactNode;
+  trigger?: (props: {
+    value?: string;
+    label?: string;
+    icon?: React.ReactNode;
+    option?: T;
+    open: boolean;
+  }) => React.ReactNode;
+  onClose?: () => void;
+  placeholder?: string;
+  disabled?: boolean;
+} & Omit<
+  React.ComponentProps<typeof SelectPrimitive.Root>,
+  'value' | 'onValueChange' | 'disabled'
+>;
+
+function SingleSelectInner<T>(
+  {
+    options,
+    value,
+    setValue,
+    getLabel,
+    getValue,
+    getIcon,
+    trigger,
+    onClose,
+    placeholder = 'Select...',
+    disabled,
+    ...rest
+  }: SingleSelectProps<T>,
+  ref: React.ForwardedRef<React.ComponentRef<typeof SelectPrimitive.Trigger>>
+) {
+  const [open, setOpen] = React.useState(false);
+  const selectedOption = options.find((opt) => getValue(opt) === value);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen && onClose) {
+      onClose();
+    }
+  };
+
+  const handleValueChange = (newValue: string) => {
+    setValue(newValue);
+  };
+
+  return (
+    <Select
+      value={value}
+      onValueChange={handleValueChange}
+      open={open}
+      onOpenChange={handleOpenChange}
+      disabled={disabled}
+      {...rest}
+    >
+      {trigger ? (
+        trigger({
+          value: selectedOption ? getValue(selectedOption) : undefined,
+          label: selectedOption ? getLabel(selectedOption) : undefined,
+          icon: selectedOption && getIcon ? getIcon(selectedOption) : undefined,
+          option: selectedOption,
+          open,
+        })
+      ) : (
+        <SelectTrigger ref={ref} disabled={disabled}>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
+      )}
+      <SelectContent>
+        {options.map((option) => {
+          const optionValue = getValue(option);
+          const optionLabel = getLabel(option);
+          const optionIcon = getIcon?.(option);
+
+          return (
+            <SelectItem key={optionValue} value={optionValue}>
+              {optionIcon && optionIcon}
+              {optionLabel}
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
+    </Select>
+  );
+}
+
+const SingleSelect = React.forwardRef(SingleSelectInner) as <T>(
+  props: SingleSelectProps<T> & {
+    ref?: React.ForwardedRef<
+      React.ComponentRef<typeof SelectPrimitive.Trigger>
+    >;
+  }
+) => React.ReactElement;
+
 export {
   Select,
   SelectContent,
@@ -331,8 +283,5 @@ export {
   SelectSeparator,
   SelectTrigger,
   SelectValue,
-  SelectWithComboboxAPI,
+  SingleSelect,
 };
-
-// Export the Item type for external use
-export type { Item };

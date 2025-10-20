@@ -28,7 +28,7 @@ import {
   FormMessage,
 } from '~/components/ui/form';
 import { Input } from '~/components/ui/input';
-import { SelectWithComboboxAPI, type Item } from '~/components/ui/select';
+import { SingleSelect } from '~/components/ui/select';
 import { Switch } from '~/components/ui/switch';
 import { type StreamingPostMessage } from '~/lib/types/streaming';
 import { CpuIcon } from '../ui/cpu';
@@ -42,14 +42,16 @@ const DEFAULT_TONE_WEIGHTS = {
 } as const;
 
 // Platform and ownership type options
-const PLATFORMS: Item[] = [
+type OptionItem = { value: string; label: string };
+
+const PLATFORMS: OptionItem[] = [
   { value: 'twitter', label: 'Twitter' },
   { value: 'instagram', label: 'Instagram' },
   { value: 'facebook', label: 'Facebook' },
   { value: 'linkedin', label: 'LinkedIn' },
 ];
 
-const OWNERSHIP_TYPES: Item[] = [
+const OWNERSHIP_TYPES: OptionItem[] = [
   { value: 'own_content', label: 'My Own' },
   { value: 'third_party_content', label: 'Third Party' },
 ];
@@ -778,10 +780,12 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
                             Platform *
                           </FormLabel>
                           <FormControl>
-                            <SelectWithComboboxAPI
+                            <SingleSelect
                               options={PLATFORMS}
                               value={field.value}
                               setValue={field.onChange}
+                              getLabel={(option) => option.label}
+                              getValue={(option) => option.value}
                               placeholder="Select platform"
                             />
                           </FormControl>

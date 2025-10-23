@@ -7,7 +7,7 @@ import * as React from 'react';
 import { authClient } from '~/lib/auth/client';
 import { siteConfig } from '~/lib/site';
 import { cn } from '~/lib/utils';
-import { Button, buttonVariants } from '../../ui/button';
+import { buttonVariants } from '../../ui/button';
 import { UserDropdown } from '../../utils/user-dropdown';
 
 const containerVariants = {
@@ -107,7 +107,7 @@ export function Header() {
                 className={cn(
                   buttonVariants({ variant: 'default', size: 'sm' })
                 )}
-                href="/signup"
+                href="/signin"
               >
                 Get Started
               </Link>
@@ -234,21 +234,16 @@ export function Header() {
                   </div>
                 ) : (
                   <>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => setMobileMenuOpen(false)}
-                    >
-                      Sign In
-                    </Button>
-                    <Button
-                      size="sm"
-                      className="w-full"
+                    <Link
+                      href="/signin"
+                      className={cn(
+                        buttonVariants({ variant: 'ghost', size: 'sm' }),
+                        'w-full'
+                      )}
                       onClick={() => setMobileMenuOpen(false)}
                     >
                       Get Started
-                    </Button>
+                    </Link>
                   </>
                 )}
               </motion.div>

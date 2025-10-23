@@ -1,7 +1,6 @@
 'use client';
 
-import { HelpCircle, LogOut, Plus, Receipt, Sparkles } from 'lucide-react';
-import Link from 'next/link';
+import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -80,29 +79,6 @@ export function UserDropdown() {
               {user.email}
             </p>
           </div>
-        </div>
-
-        <DropdownMenuSeparator />
-
-        <div className="p-2">
-          <DropdownMenuItem asChild className="cursor-pointer">
-            <Link href="/create">
-              <Plus className="mr-2 h-4 w-4" />
-              <span>Create Post</span>
-            </Link>
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer">
-            <Sparkles className="mr-2 h-4 w-4" />
-            <span>Getting Started</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer">
-            <HelpCircle className="mr-2 h-4 w-4" />
-            <span>Support Center</span>
-          </DropdownMenuItem>
-          <DropdownMenuItem className="cursor-pointer">
-            <Receipt className="mr-2 h-4 w-4" />
-            <span>Billings</span>
-          </DropdownMenuItem>
         </div>
 
         <DropdownMenuSeparator />

@@ -1,4 +1,5 @@
 import { ArrowRight, Badge, Sparkles, Zap } from 'lucide-react';
+import Link from 'next/link';
 import { Button } from '../../ui/button';
 
 export function Hero() {
@@ -23,13 +24,12 @@ export function Hero() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 mb-12">
-          <Button size="lg" className="text-base">
-            Start Writing Free
-            <ArrowRight className="ml-2 h-5 w-5" />
-          </Button>
-          <Button size="lg" variant="outline" className="text-base">
-            Watch Demo
-          </Button>
+          <Link href="/signin">
+            <Button size="lg" className="text-base">
+              Start Writing Free
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </Link>
         </div>
 
         <div className="flex flex-wrap items-center justify-center gap-8 text-sm text-muted-foreground">

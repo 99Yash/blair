@@ -2,8 +2,11 @@
 
 import { HelpCircle, LogOut, Plus, Receipt, Sparkles } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import * as React from 'react';
+import { toast } from 'sonner';
 import { authClient } from '~/lib/auth/client';
+import { getErrorMessage } from '~/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Button } from '../ui/button';
 import {
@@ -17,6 +20,8 @@ import {
 export function UserDropdown() {
   const { data: session } = authClient.useSession();
   const [isOpen, setIsOpen] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const router = useRouter();
 
   if (!session?.user) {
     return null;
@@ -25,8 +30,16 @@ export function UserDropdown() {
   const user = session.user;
 
   const handleSignOut = async () => {
-    await authClient.signOut();
-    setIsOpen(false);
+    try {
+      setIsLoading(true);
+      await authClient.signOut();
+      router.push('/signin');
+      setIsOpen(false);
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getInitials = (name: string) => {

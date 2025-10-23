@@ -16,6 +16,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { Spinner } from '../ui/spinner';
 
 export function UserDropdown() {
   const { data: session } = authClient.useSession();
@@ -110,8 +111,13 @@ export function UserDropdown() {
           <DropdownMenuItem
             className="cursor-pointer text-red-600 focus:text-red-600"
             onClick={handleSignOut}
+            disabled={isLoading}
           >
-            <LogOut className="mr-2 h-4 w-4" />
+            {isLoading ? (
+              <Spinner className="mr-2 h-4 w-4" />
+            ) : (
+              <LogOut className="mr-2 h-4 w-4" />
+            )}
             <span>Log out</span>
           </DropdownMenuItem>
         </div>

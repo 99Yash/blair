@@ -1,17 +1,3 @@
-import {
-  ArrowDown,
-  ArrowUp,
-  CheckCircle2,
-  Circle,
-  CircleDashed,
-  CircleDot,
-  Clock,
-  Copy,
-  Flag,
-  Flame,
-  Minus,
-  XCircle,
-} from 'lucide-react';
 import * as z from 'zod';
 import { GitHub, Google } from '~/components/ui/icons';
 
@@ -19,7 +5,6 @@ export const GENERATED_POST_CONTENT_MAX_LENGTH = 280;
 export const SCRAPED_POST_CONTENT_MAX_LENGTH = 100000;
 export const TONE_WEIGHT_SIMILARITY_THRESHOLD = 80;
 
-// Platform-specific content generation guidelines
 export const PLATFORM_GENERATION_CONFIG = {
   twitter: {
     characterLimit: 280,
@@ -101,99 +86,6 @@ export type AuthOptionsType = z.infer<typeof authOptionsSchema>;
 export const LOCAL_STORAGE_SCHEMAS = {
   LAST_AUTH_METHOD: authOptionsSchema,
 } as const;
-
-export const ISSUE_STATUS_OPTIONS = [
-  {
-    value: 'backlog',
-    label: 'Backlog',
-    color: 'bg-status-backlog',
-    icon: CircleDashed,
-    textColor: 'text-status-backlog',
-  },
-  {
-    value: 'todo',
-    label: 'Todo',
-    color: 'bg-status-todo',
-    icon: Circle,
-    textColor: 'text-status-todo',
-  },
-  {
-    value: 'in_progress',
-    label: 'In Progress',
-    color: 'bg-status-in-progress',
-    icon: Clock,
-    textColor: 'text-status-in-progress',
-  },
-  {
-    value: 'in_review',
-    label: 'In Review',
-    color: 'bg-status-in-review',
-    icon: CircleDot,
-    textColor: 'text-status-in-review',
-  },
-  {
-    value: 'done',
-    label: 'Done',
-    color: 'bg-status-done',
-    icon: CheckCircle2,
-    textColor: 'text-status-done',
-  },
-  {
-    value: 'cancelled',
-    label: 'Cancelled',
-    color: 'bg-status-cancelled',
-    icon: XCircle,
-    textColor: 'text-status-cancelled',
-  },
-  {
-    value: 'duplicate',
-    label: 'Duplicate',
-    color: 'bg-status-duplicate',
-    icon: Copy,
-    textColor: 'text-status-duplicate',
-  },
-] as const;
-
-export const ISSUE_PRIORITY_OPTIONS = [
-  {
-    value: 'no_priority',
-    label: 'No priority',
-    color: 'bg-muted-foreground/60',
-    icon: Flag,
-    textColor: 'text-priority-none',
-  },
-  {
-    value: 'urgent',
-    label: 'Urgent',
-    color: 'bg-red-600',
-    icon: Flame,
-    textColor: 'text-priority-urgent',
-  },
-  {
-    value: 'high',
-    label: 'High',
-    color: 'bg-orange-500',
-    icon: ArrowUp,
-    textColor: 'text-priority-high',
-  },
-  {
-    value: 'medium',
-    label: 'Medium',
-    color: 'bg-yellow-400',
-    icon: Minus,
-    textColor: 'text-priority-medium',
-  },
-  {
-    value: 'low',
-    label: 'Low',
-    color: 'bg-green-500',
-    icon: ArrowDown,
-    textColor: 'text-priority-low',
-  },
-] as const;
-
-export type IssueStatus = (typeof ISSUE_STATUS_OPTIONS)[number]['value'];
-export type IssuePriority = (typeof ISSUE_PRIORITY_OPTIONS)[number]['value'];
 
 export type LocalStorageKey = keyof typeof LOCAL_STORAGE_SCHEMAS;
 

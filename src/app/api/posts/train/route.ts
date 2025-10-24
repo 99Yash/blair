@@ -103,7 +103,7 @@ export async function POST(request: Request) {
     await db.insert(training_posts).values({
       original_url: validatedBody.original_url,
       post_content: scrapedContent.markdown ?? '',
-      platform: validatedBody.platform,
+      platforms: validatedBody.platform,
       content_type: analysis.content_type,
       content_summary: analysis.content_summary,
       sales_pitch_strength: analysis.sales_pitch_strength,

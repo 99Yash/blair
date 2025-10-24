@@ -222,17 +222,16 @@ ${slicedContent}`,
           SELECT
             tp.*,
             (
-              SELECT SUM(
+              SELECT COALESCE(SUM(
                 CASE
                   WHEN ABS((tone_elem->>'weight')::float8 - ut.weight) <= ${sql.param(
                     TONE_WEIGHT_SIMILARITY_THRESHOLD
-                  )}
-                  THEN 1
+                  )} THEN 1
                   ELSE 0
                 END
-              )
+              ), 0)
               FROM jsonb_array_elements(tp.tone_profile) AS tone_elem
-              JOIN jsonb_to_recordset(${toneProfileJson}::jsonb) AS ut(tone text, weight int)
+              JOIN jsonb_to_recordset(${toneProfileJson}::jsonb) AS ut(tone text, weight float8)
                 ON (tone_elem->>'tone') = ut.tone
             ) AS tone_match_score
           FROM training_posts tp

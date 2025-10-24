@@ -121,7 +121,7 @@ export const searchTrainingPostsTool = tool({
       const exactMatchClauses = [];
 
       if (platform) {
-        exactMatchClauses.push(eq(training_posts.platform, platform));
+        exactMatchClauses.push(eq(training_posts.platforms, platform));
       }
       if (link_type) {
         exactMatchClauses.push(eq(training_posts.content_type, link_type));
@@ -166,7 +166,7 @@ export const searchTrainingPostsTool = tool({
         // Try with fewer filters - prioritize the most important ones
         const priorityFilters = [];
         if (platform)
-          priorityFilters.push(eq(training_posts.platform, platform));
+          priorityFilters.push(eq(training_posts.platforms, platform));
         if (link_type)
           priorityFilters.push(eq(training_posts.content_type, link_type));
 
@@ -183,7 +183,7 @@ export const searchTrainingPostsTool = tool({
         if (results.length === 0) {
           const anyMatchClauses = [];
           if (platform)
-            anyMatchClauses.push(eq(training_posts.platform, platform));
+            anyMatchClauses.push(eq(training_posts.platforms, platform));
           if (link_type)
             anyMatchClauses.push(eq(training_posts.content_type, link_type));
           if (target_audience)
@@ -251,7 +251,7 @@ export const searchTrainingPostsTool = tool({
       const sanitizedResults = scoredResults.map((post) => ({
         post_content: post.post_content,
         content_summary: post.content_summary,
-        platform: post.platform,
+        platform: post.platforms,
         content_type: post.content_type,
         link_ownership_type: post.link_ownership_type,
         target_audience: post.target_audience,

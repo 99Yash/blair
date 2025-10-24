@@ -63,7 +63,7 @@ export const training_posts = pgTable(
       .$defaultFn(() => createId())
       .primaryKey(),
     post_content: text('post_content').notNull(),
-    platform: platforms('platforms').notNull(),
+    platforms: platforms('platforms').notNull(),
     content_type: linkTypeEnum('content_type').notNull(),
     original_url: text('original_url').notNull(),
     content_summary: text('content_summary').notNull(),
@@ -93,7 +93,7 @@ export const training_posts = pgTable(
     // Composite BTREE index to satisfy the additional equality filters applied in
     // the similarity query (platform, content_type, target_audience)
     index('training_posts_filter_idx').on(
-      table.platform,
+      table.platforms,
       table.content_type,
       table.target_audience
     ),

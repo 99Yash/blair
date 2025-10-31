@@ -1,12 +1,13 @@
 'use client';
 
+import Avatar from 'boring-avatars';
 import { LogOut } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { toast } from 'sonner';
 import { authClient } from '~/lib/auth/client';
 import { getErrorMessage } from '~/lib/utils';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { AvatarImage, Avatar as AvatarPrimitive } from '../ui/avatar';
 import { Button } from '../ui/button';
 import {
   DropdownMenu,
@@ -42,35 +43,36 @@ export function UserDropdown() {
     }
   };
 
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map((word) => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-            <AvatarImage src={user.image || ''} alt={user.name || ''} />
-            <AvatarFallback className="bg-primary text-primary-foreground">
-              {getInitials(user.name || 'User')}
-            </AvatarFallback>
-          </Avatar>
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full p-0">
+          {user.image ? (
+            <AvatarPrimitive className="h-8 w-8">
+              <AvatarImage src={user.image} alt={user.name || ''} />
+            </AvatarPrimitive>
+          ) : (
+            <Avatar
+              size={32}
+              name={user.name || user.email || 'User'}
+              variant="beam"
+            />
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-64 p-0" align="end" forceMount>
         <div className="flex items-center gap-3 p-4">
-          <Avatar className="h-12 w-12">
-            <AvatarImage src={user.image || ''} alt={user.name || ''} />
-            <AvatarFallback className="bg-primary text-primary-foreground text-lg">
-              {getInitials(user.name || 'User')}
-            </AvatarFallback>
-          </Avatar>
+          {user.image ? (
+            <AvatarPrimitive className="h-12 w-12">
+              <AvatarImage src={user.image} alt={user.name || ''} />
+            </AvatarPrimitive>
+          ) : (
+            <Avatar
+              size={48}
+              name={user.name || user.email || 'User'}
+              variant="beam"
+            />
+          )}
           <div className="flex-1 space-y-1">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium leading-none">{user.name}</p>

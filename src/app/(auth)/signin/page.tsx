@@ -10,7 +10,7 @@ export default async function AuthenticationPage() {
   });
 
   if (session?.user) {
-    redirect('/');
+    redirect('/create');
   }
 
   return (

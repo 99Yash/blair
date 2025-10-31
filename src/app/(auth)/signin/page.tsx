@@ -1,17 +1,15 @@
-import { headers } from 'next/headers';
-import { redirect } from 'next/navigation';
+'use client';
+
+import React from 'react';
 import { OAuthButtons } from '~/app/(auth)/signin/oauth-buttons';
-import { auth } from '~/lib/auth/server';
 import { EmailSignIn } from './email-signin';
 
-export default async function AuthenticationPage() {
-  const session = await auth.api.getSession({
-    headers: await headers(),
-  });
+export default function AuthenticationPage() {
+  const [isSignUp, setIsSignUp] = React.useState(false);
 
-  if (session?.user) {
-    redirect('/');
-  }
+  const handleToggleMode = React.useCallback(() => {
+    setIsSignUp((prev) => !prev);
+  }, []);
 
   return (
     <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
@@ -37,7 +35,7 @@ export default async function AuthenticationPage() {
           </div>
         </div>
         <div className="space-y-1">
-          <EmailSignIn />
+          <EmailSignIn isSignUp={isSignUp} onToggleMode={handleToggleMode} />
         </div>
       </div>
     </div>

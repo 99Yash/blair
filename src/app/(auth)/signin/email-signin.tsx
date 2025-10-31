@@ -112,7 +112,6 @@ export function EmailSignIn({
           name,
           email,
           password,
-          image: `https://avatar.vercel.sh/${encodeURIComponent(name)}`, // Generate avatar from name
           callbackURL: '/create',
         });
 

@@ -47,15 +47,8 @@ type EmailSignInProps = z.infer<typeof signInSchema>;
 
 type EmailSignUpProps = z.infer<typeof signUpSchema>;
 
-interface EmailSignInComponentProps {
-  isSignUp?: boolean;
-  onToggleMode?: () => void;
-}
-
-export function EmailSignIn({
-  isSignUp = false,
-  onToggleMode,
-}: EmailSignInComponentProps) {
+export function EmailSignIn() {
+  const [isSignUp, setIsSignUp] = React.useState(false);
   const [lastAuthMethod, setLastAuthMethod] =
     React.useState<AuthOptionsType | null>(null);
 
@@ -71,6 +64,11 @@ export function EmailSignIn({
   const [formErrors, setFormErrors] = React.useState<Record<string, string>>(
     {}
   );
+
+  const handleToggleMode = React.useCallback(() => {
+    setIsSignUp((prev) => !prev);
+    setFormErrors({}); // Clear errors when switching modes
+  }, []);
 
   const handleSignIn = React.useCallback(
     async ({ email, password }: EmailSignInProps) => {
@@ -282,10 +280,7 @@ export function EmailSignIn({
       <div className="text-center">
         <button
           type="button"
-          onClick={() => {
-            onToggleMode?.();
-            setFormErrors({}); // Clear errors when switching modes
-          }}
+          onClick={handleToggleMode}
           className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4"
         >
           {isSignUp

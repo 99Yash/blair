@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import React from 'react';
 import { toast } from 'sonner';
 import * as z from 'zod/v4';
@@ -57,7 +56,6 @@ export function EmailSignIn({
   isSignUp = false,
   onToggleMode,
 }: EmailSignInComponentProps) {
-  const router = useRouter();
   const [lastAuthMethod, setLastAuthMethod] =
     React.useState<AuthOptionsType | null>(null);
 
@@ -96,7 +94,6 @@ export function EmailSignIn({
           setLocalStorageItem('LAST_AUTH_METHOD', 'EMAIL');
         }
 
-        router.push('/');
         toast.success('Successfully signed in!');
       } catch (error) {
         toast.error(getErrorMessage(error));
@@ -104,7 +101,7 @@ export function EmailSignIn({
         setIsLoading(false);
       }
     },
-    [router]
+    []
   );
 
   const handleSignUp = React.useCallback(
@@ -136,7 +133,7 @@ export function EmailSignIn({
         setIsLoading(false);
       }
     },
-    [router]
+    []
   );
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

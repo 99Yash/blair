@@ -67,7 +67,7 @@ export function getAIErrorMessage(err: unknown): string {
   if (APICallError.isInstance(err)) {
     const message = err.message.toLowerCase();
 
-    if (message.includes('quota') || message.includes('insufficient_quota')) {
+    if (message.includes('quota')) {
       return 'AI service quota exceeded. Please try again later.';
     }
     if (message.includes('rate limit') || message.includes('429')) {

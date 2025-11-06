@@ -1,3 +1,30 @@
+import {
+  APICallError,
+  DownloadError,
+  EmptyResponseBodyError,
+  InvalidArgumentError,
+  InvalidDataContentError,
+  InvalidMessageRoleError,
+  InvalidPromptError,
+  InvalidResponseDataError,
+  InvalidToolInputError,
+  JSONParseError,
+  LoadAPIKeyError,
+  MessageConversionError,
+  NoContentGeneratedError,
+  NoImageGeneratedError,
+  NoObjectGeneratedError,
+  NoOutputSpecifiedError,
+  NoSpeechGeneratedError,
+  NoSuchModelError,
+  NoSuchProviderError,
+  NoSuchToolError,
+  RetryError,
+  ToolCallRepairError,
+  TooManyEmbeddingValuesForCallError,
+  TypeValidationError,
+  UnsupportedFunctionalityError,
+} from 'ai';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import * as z from 'zod/v4';
@@ -29,6 +56,181 @@ export function getErrorMessage(err: unknown): string {
   } else {
     return unknownError;
   }
+}
+
+/**
+ * Converts technical AI SDK errors into user-friendly messages
+ * Uses AI SDK's .isInstance() methods for type-safe error checking
+ */
+export function getAIErrorMessage(err: unknown): string {
+  // API Call Errors - Check specific HTTP status codes
+  if (APICallError.isInstance(err)) {
+    const message = err.message.toLowerCase();
+
+    if (message.includes('quota') || message.includes('insufficient_quota')) {
+      return 'AI service quota exceeded. Please try again later.';
+    }
+    if (message.includes('rate limit') || message.includes('429')) {
+      return 'Too many requests. Please wait a moment and try again.';
+    }
+    if (message.includes('401') || message.includes('unauthorized')) {
+      return 'AI service authentication failed. Please contact support.';
+    }
+    if (message.includes('403') || message.includes('forbidden')) {
+      return 'Access denied to AI service. Please contact support.';
+    }
+    if (message.includes('404')) {
+      return 'AI service endpoint not found. Please contact support.';
+    }
+    if (
+      message.includes('500') ||
+      message.includes('502') ||
+      message.includes('503')
+    ) {
+      return 'AI service is temporarily unavailable. Please try again in a moment.';
+    }
+    return 'AI service error occurred. Please try again.';
+  }
+
+  // Content Generation Errors
+  if (NoContentGeneratedError.isInstance(err)) {
+    return 'AI did not generate any content. Please try again with different input.';
+  }
+
+  if (NoObjectGeneratedError.isInstance(err)) {
+    return 'AI failed to generate the required data structure. Please try again.';
+  }
+
+  if (NoImageGeneratedError.isInstance(err)) {
+    return 'AI failed to generate an image. Please try again.';
+  }
+
+  if (NoSpeechGeneratedError.isInstance(err)) {
+    return 'AI failed to generate speech. Please try again.';
+  }
+
+  // Model/Provider Errors
+  if (NoSuchModelError.isInstance(err)) {
+    return 'The requested AI model is not available. Please contact support.';
+  }
+
+  if (NoSuchProviderError.isInstance(err)) {
+    return 'AI provider configuration error. Please contact support.';
+  }
+
+  if (UnsupportedFunctionalityError.isInstance(err)) {
+    return 'This feature is not supported by the current AI model. Please contact support.';
+  }
+
+  // Input/Validation Errors
+  if (InvalidArgumentError.isInstance(err)) {
+    return 'Invalid input provided. Please check your data and try again.';
+  }
+
+  if (InvalidPromptError.isInstance(err)) {
+    return 'Invalid prompt format. Please try again with different content.';
+  }
+
+  if (InvalidMessageRoleError.isInstance(err)) {
+    return 'Invalid message format. Please refresh and try again.';
+  }
+
+  if (InvalidToolInputError.isInstance(err)) {
+    return 'Invalid tool configuration. Please contact support.';
+  }
+
+  if (TypeValidationError.isInstance(err)) {
+    return 'Data validation failed. Please check your input and try again.';
+  }
+
+  // Data/Response Errors
+  if (JSONParseError.isInstance(err)) {
+    return 'Failed to parse AI response. Please try again.';
+  }
+
+  if (InvalidResponseDataError.isInstance(err)) {
+    return 'Received invalid data from AI service. Please try again.';
+  }
+
+  if (InvalidDataContentError.isInstance(err)) {
+    return 'Invalid data format received. Please try again.';
+  }
+
+  if (EmptyResponseBodyError.isInstance(err)) {
+    return 'AI service returned an empty response. Please try again.';
+  }
+
+  // Network/Connection Errors
+  if (DownloadError.isInstance(err)) {
+    return 'Failed to download from AI service. Please check your connection and try again.';
+  }
+
+  if (RetryError.isInstance(err)) {
+    return 'AI service request failed after multiple retries. Please try again later.';
+  }
+
+  // Configuration Errors
+  if (LoadAPIKeyError.isInstance(err)) {
+    return 'AI service configuration error. Please contact support.';
+  }
+
+  // Other Specific Errors
+  if (NoSuchToolError.isInstance(err)) {
+    return 'Required AI tool not found. Please contact support.';
+  }
+
+  if (ToolCallRepairError.isInstance(err)) {
+    return 'AI tool execution failed. Please try again.';
+  }
+
+  if (MessageConversionError.isInstance(err)) {
+    return 'Failed to process message format. Please refresh and try again.';
+  }
+
+  if (NoOutputSpecifiedError.isInstance(err)) {
+    return 'AI configuration error. Please contact support.';
+  }
+
+  if (TooManyEmbeddingValuesForCallError.isInstance(err)) {
+    return 'Too much data to process. Please try with a shorter input.';
+  }
+
+  // Fallback for generic errors (non-AI SDK errors)
+  if (err instanceof Error) {
+    const message = err.message.toLowerCase();
+    const name = err.name?.toLowerCase() ?? '';
+
+    if (
+      message.includes('timeout') ||
+      message.includes('etimedout') ||
+      message.includes('timed out')
+    ) {
+      return 'Request timed out. Please try again.';
+    }
+
+    if (
+      message.includes('network') ||
+      message.includes('econnrefused') ||
+      message.includes('enotfound') ||
+      message.includes('connection')
+    ) {
+      return 'Network error. Please check your connection and try again.';
+    }
+
+    if (
+      name.includes('abort') ||
+      message.includes('abort') ||
+      message.includes('cancelled')
+    ) {
+      return 'Request was cancelled. Please try again.';
+    }
+
+    // Log unhandled errors for debugging
+    console.error('Unhandled AI error type:', err.name, err.message);
+  }
+
+  // Generic fallback
+  return 'AI service encountered an error. Please try again.';
 }
 
 /**

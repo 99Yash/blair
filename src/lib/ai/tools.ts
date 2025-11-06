@@ -1,4 +1,4 @@
-import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import { generateObject, tool } from 'ai';
 import { and, eq, or, sql } from 'drizzle-orm';
 import * as z from 'zod/v4';
@@ -32,7 +32,7 @@ export const scrapeWebsiteTool = tool({
     const slicedContent = content.slice(0, 100000);
 
     const { object: analysis } = await generateObject({
-      model: openai('gpt-4o-mini'),
+      model: google('gemini-2.0-flash-lite'),
       schema: scrapedContentAnalysisSchema,
       prompt: `Analyze the following scraped content: ${slicedContent} and return the analysis in the schema provided.`,
     });

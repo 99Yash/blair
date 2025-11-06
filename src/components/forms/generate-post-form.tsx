@@ -51,11 +51,6 @@ const PLATFORMS: OptionItem[] = [
   { value: 'linkedin', label: 'LinkedIn' },
 ];
 
-const OWNERSHIP_TYPES: OptionItem[] = [
-  { value: 'own_content', label: 'My Own' },
-  { value: 'third_party_content', label: 'Third Party' },
-];
-
 const DEFAULT_FORM_VALUES = {
   original_url: '',
   platform: 'twitter' as const,
@@ -556,6 +551,7 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
   const isSubmitting = status === 'submitted' || status === 'streaming';
 
   // Derive data from message parts instead of separate state
+  // With stable IDs, each data type appears only once and gets updated in place
   const lastMessage = messages[messages.length - 1];
   const contentAnalysis = lastMessage?.parts.find(
     (part) => part.type === 'data-content_analysis'
@@ -563,14 +559,13 @@ export function GeneratePostForm({ className }: GeneratePostFormProps) {
   const trainingPosts = lastMessage?.parts.find(
     (part) => part.type === 'data-training_posts'
   )?.data;
-  // Use the LAST occurrence of generated_post to get the latest streamed content
-  const generatedPostParts = lastMessage?.parts.filter(
+  // With stable ID, generated_post is automatically updated in place
+  const generatedPost = lastMessage?.parts.find(
     (part) => part.type === 'data-generated_post'
-  );
-  const generatedPost =
-    generatedPostParts?.[generatedPostParts.length - 1]?.data;
+  )?.data;
 
   // Extract progress messages to determine step statuses and errors
+  // With stable IDs, each stage has only one progress message that updates in place
   const progressMessages = messages
     .flatMap((message) => message.parts)
     .filter((part) => part.type === 'data-progress')

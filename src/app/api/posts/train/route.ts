@@ -1,8 +1,8 @@
+import { google } from '@ai-sdk/google';
 import { openai } from '@ai-sdk/openai';
 import { embedMany, generateObject } from 'ai';
-import { headers } from 'next/headers';
-
 import { and, eq } from 'drizzle-orm';
+import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { training_posts } from '~/db/schemas';
@@ -86,7 +86,7 @@ export async function POST(request: Request) {
     const slicedContent = content.slice(0, SCRAPED_POST_CONTENT_MAX_LENGTH);
 
     const { object: analysis } = await generateObject({
-      model: openai('gpt-4o-mini'),
+      model: google('gemini-2.0-flash-lite'),
       schema: scrapedContentAnalysisSchema,
       prompt: `Analyze the following scraped content: ${slicedContent} and return the analysis in the schema provided.`,
     });

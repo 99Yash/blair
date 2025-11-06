@@ -77,18 +77,22 @@ export function createStreamingData<K extends keyof StreamingDataMap>(
 // Type-safe helper functions with proper type constraints
 
 // Helper function to create progress data parts
+// Uses the stage as a stable ID so updates to the same stage replace each other
 export function createProgressData(
   stage: ProgressStage,
   message: string,
   status: 'loading' | 'success' | 'error' = 'loading',
   details?: string
 ): StreamingChunk<'progress'> {
-  return createStreamingData('progress', {
-    stage,
-    message,
-    status,
-    details,
-  });
+  return {
+    ...createStreamingData('progress', {
+      stage,
+      message,
+      status,
+      details,
+    }),
+    id: `progress-${stage}`, // Stable ID per stage
+  };
 }
 
 // Helper function to create notification data parts
@@ -103,31 +107,43 @@ export function createNotificationData(
 }
 
 // Helper function to create content analysis data parts
+// Uses a stable ID so subsequent updates replace the previous analysis
 export function createContentAnalysisData(
   analysis: StreamingDataMap['content_analysis']
 ): StreamingChunk<'content_analysis'> {
-  return createStreamingData('content_analysis', analysis);
+  return {
+    ...createStreamingData('content_analysis', analysis),
+    id: 'content-analysis', // Stable ID
+  };
 }
 
 // Helper function to create training posts data parts
+// Uses a stable ID so subsequent updates replace the previous results
 export function createTrainingPostsData(
   count: number,
   examples?: StreamingDataMap['training_posts']['examples']
 ): StreamingChunk<'training_posts'> {
-  return createStreamingData('training_posts', { count, examples });
+  return {
+    ...createStreamingData('training_posts', { count, examples }),
+    id: 'training-posts', // Stable ID
+  };
 }
 
 // Helper function to create generated post data parts
+// Uses a stable ID so streaming updates replace each other (building up the content)
 export function createGeneratedPostData(
   content: string,
   platform: string,
   estimated_engagement?: number
 ): StreamingChunk<'generated_post'> {
-  return createStreamingData('generated_post', {
-    content,
-    platform,
-    estimated_engagement,
-  });
+  return {
+    ...createStreamingData('generated_post', {
+      content,
+      platform,
+      estimated_engagement,
+    }),
+    id: 'generated-post', // Stable ID for streaming updates
+  };
 }
 
 // Utility type for extracting data types

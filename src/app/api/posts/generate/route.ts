@@ -1,4 +1,4 @@
-import { openai } from '@ai-sdk/openai';
+import { google } from '@ai-sdk/google';
 import {
   createUIMessageStream,
   createUIMessageStreamResponse,
@@ -34,8 +34,8 @@ import {
 import {
   createAuthError,
   createConflictError,
-  createExternalServiceError,
   createValidationError,
+  getAIErrorMessage,
 } from '~/lib/utils';
 
 // Schema for the generate endpoint - includes tone profile from user
@@ -140,16 +140,35 @@ export async function POST(request: Request) {
           )
         );
 
-        const scrapedContent = await firecrawl.scrape(
-          submissionData.original_url,
-          {
+        let scrapedContent;
+        try {
+          scrapedContent = await firecrawl.scrape(submissionData.original_url, {
             formats: ['markdown', 'html'],
             onlyMainContent: true,
             waitFor: 1000,
-          }
-        );
+          });
+        } catch (err) {
+          const errorMessage =
+            'Unable to access the URL. Please check if the URL is valid and accessible.';
+          writer.write(
+            createProgressData(PROGRESS_STAGES.SCRAPING, errorMessage, 'error')
+          );
+          writer.write(createNotificationData(errorMessage, 'error'));
+          return;
+        }
 
         const content = scrapedContent.markdown ?? scrapedContent.html ?? '';
+
+        if (!content.trim()) {
+          const errorMessage =
+            'No content found at this URL. The page might be empty or blocked.';
+          writer.write(
+            createProgressData(PROGRESS_STAGES.SCRAPING, errorMessage, 'error')
+          );
+          writer.write(createNotificationData(errorMessage, 'error'));
+          return;
+        }
+
         const slicedContent = content.slice(0, 100000);
 
         currentStage = PROGRESS_STAGES.ANALYZING;
@@ -161,26 +180,31 @@ export async function POST(request: Request) {
           )
         );
 
-        const { object: analysis } = await generateObject({
-          model: openai('gpt-4o-mini'),
-          schema: scrapedContentAnalysisSchema,
-          prompt: `Analyze the following scraped content:
+        let analysis;
+        try {
+          const result = await generateObject({
+            model: google('gemini-2.0-flash-lite'),
+            schema: scrapedContentAnalysisSchema,
+            prompt: `Analyze the following scraped content:
 ${slicedContent}`,
-        });
+          });
+          analysis = result.object;
+        } catch (err) {
+          const errorMessage = getAIErrorMessage(err);
+          writer.write(
+            createProgressData(PROGRESS_STAGES.ANALYZING, errorMessage, 'error')
+          );
+          writer.write(createNotificationData(errorMessage, 'error'));
+          return;
+        }
 
         if (!analysis || !analysis.content_summary) {
-          const error = createExternalServiceError(
-            'OpenAI',
-            'Failed to analyze website content'
-          );
+          const errorMessage =
+            'Failed to analyze website content. Please try again.';
           writer.write(
-            createProgressData(
-              PROGRESS_STAGES.ANALYZING,
-              error.message,
-              'error'
-            )
+            createProgressData(PROGRESS_STAGES.ANALYZING, errorMessage, 'error')
           );
-          writer.write(createNotificationData(error.message, 'error'));
+          writer.write(createNotificationData(errorMessage, 'error'));
           return;
         }
 
@@ -261,7 +285,22 @@ ${slicedContent}`,
         `);
 
         // Execute the query
-        const results = await db.execute(toneSimilaritySql);
+        let results;
+        try {
+          results = await db.execute(toneSimilaritySql);
+        } catch (err) {
+          console.error(
+            'Database error while searching for training posts:',
+            err
+          );
+          const errorMessage =
+            'Failed to search for similar posts. Please try again.';
+          writer.write(
+            createProgressData(PROGRESS_STAGES.SEARCHING, errorMessage, 'error')
+          );
+          writer.write(createNotificationData(errorMessage, 'error'));
+          return;
+        }
 
         // Map the results for streaming
         const examplePosts = results.rows.map((post) => ({
@@ -323,8 +362,8 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           outputFormatting: `Reply with the post content only, no explanations.`,
         });
 
-        const generationResult = streamText({
-          model: openai('gpt-4o-mini'),
+        let generationResult = streamText({
+          model: google('gemini-2.0-flash-lite'),
           messages: [
             {
               role: 'user',
@@ -335,37 +374,50 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
 
         // Collect the generated content and stream it to the client
         let generatedContent = '';
-        for await (const delta of generationResult.textStream) {
-          generatedContent += delta;
+        try {
+          for await (const delta of generationResult.textStream) {
+            generatedContent += delta;
 
-          // Stream the content as it's being generated (send every chunk)
-          writer.write(
-            createGeneratedPostData(generatedContent, submissionData.platform)
-          );
-
-          // Also update progress every 50 characters
-          if (generatedContent.length % 50 === 0) {
+            // Stream the content as it's being generated (send every chunk)
             writer.write(
-              createProgressData(
-                PROGRESS_STAGES.GENERATING,
-                `Generating post content... (${generatedContent.length} characters)`,
-                'loading'
-              )
+              createGeneratedPostData(generatedContent, submissionData.platform)
             );
-          }
-        }
 
-        if (!generatedContent) {
+            // Also update progress every 50 characters
+            if (generatedContent.length % 50 === 0) {
+              writer.write(
+                createProgressData(
+                  PROGRESS_STAGES.GENERATING,
+                  `Generating post content... (${generatedContent.length} characters)`,
+                  'loading'
+                )
+              );
+            }
+          }
+        } catch (err) {
+          const errorMessage = getAIErrorMessage(err);
           writer.write(
             createProgressData(
               PROGRESS_STAGES.GENERATING,
-              'Failed to generate post content',
+              errorMessage,
               'error'
             )
           );
+          writer.write(createNotificationData(errorMessage, 'error'));
+          return;
+        }
+
+        if (!generatedContent.trim()) {
+          const errorMessage =
+            'Failed to generate post content. Please try again.';
           writer.write(
-            createNotificationData('Failed to generate post content', 'error')
+            createProgressData(
+              PROGRESS_STAGES.GENERATING,
+              errorMessage,
+              'error'
+            )
           );
+          writer.write(createNotificationData(errorMessage, 'error'));
           return;
         }
 
@@ -450,30 +502,17 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           throw error;
         }
       } catch (err) {
-        console.error('ERROR: Exception during post generation:', err);
+        // This catch block handles unexpected errors that weren't caught by stage-specific handlers
+        console.error(
+          'ERROR: Unexpected exception during post generation:',
+          err
+        );
 
-        // Determine error type and create appropriate error message
-        let errorMessage = 'Internal server error occurred';
-        if (err instanceof Error) {
-          if (
-            err.message.includes('timeout') ||
-            err.message.includes('ETIMEDOUT')
-          ) {
-            errorMessage = 'Request timed out. Please try again.';
-          } else if (
-            err.message.includes('network') ||
-            err.message.includes('ECONNREFUSED')
-          ) {
-            errorMessage =
-              'Network error occurred. Please check your connection and try again.';
-          } else if (
-            err.message.includes('rate limit') ||
-            err.message.includes('429')
-          ) {
-            errorMessage =
-              'Rate limit exceeded. Please wait a moment and try again.';
-          }
-        }
+        // Try to provide a helpful error message
+        const errorMessage =
+          err instanceof Error
+            ? getAIErrorMessage(err)
+            : 'An unexpected error occurred. Please try again.';
 
         writer.write(createProgressData(currentStage, errorMessage, 'error'));
         writer.write(createNotificationData(errorMessage, 'error'));

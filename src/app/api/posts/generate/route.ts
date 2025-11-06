@@ -362,29 +362,15 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           outputFormatting: `Reply with the post content only, no explanations.`,
         });
 
-        let generationResult;
-        try {
-          generationResult = streamText({
-            model: google('gemini-2.0-flash-lite'),
-            messages: [
-              {
-                role: 'user',
-                content: prompt,
-              },
-            ],
-          });
-        } catch (err) {
-          const errorMessage = getAIErrorMessage(err);
-          writer.write(
-            createProgressData(
-              PROGRESS_STAGES.GENERATING,
-              errorMessage,
-              'error'
-            )
-          );
-          writer.write(createNotificationData(errorMessage, 'error'));
-          return;
-        }
+        let generationResult = streamText({
+          model: google('gemini-2.0-flash-lite'),
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+        });
 
         // Collect the generated content and stream it to the client
         let generatedContent = '';

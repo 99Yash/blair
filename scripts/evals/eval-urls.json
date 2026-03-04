@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Fixed evaluation URL set for Blair quality benchmarking. 50+ URLs across content types and topics.",
+  "urls": [
+    {
+      "url": "https://www.depesz.com/2013/04/16/explaining-the-unexplainable/",
+      "content_type": "tech_tutorial",
+      "topic": "databases",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://vercel.com/blog/latency-at-the-edge-with-bloom-filters",
+      "content_type": "tech_tutorial",
+      "topic": "web_performance",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://stripe.com/blog/ledger",
+      "content_type": "thought_leadership",
+      "topic": "fintech",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://docs.anthropic.com/en/docs/build-with-claude/tool-use",
+      "content_type": "tech_tutorial",
+      "topic": "ai",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://linear.app/blog/write-better-issues",
+      "content_type": "thought_leadership",
+      "topic": "product_management",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://brandur.org/postgres-atomicity",
+      "content_type": "tech_tutorial",
+      "topic": "databases",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://fly.io/blog/all-in-on-sqlite-litestream/",
+      "content_type": "tech_tutorial",
+      "topic": "databases",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://blog.pragmaticengineer.com/the-developer-culture-test/",
+      "content_type": "thought_leadership",
+      "topic": "engineering_culture",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://leerob.com/n/next-saas",
+      "content_type": "tech_tutorial",
+      "topic": "web_development",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.joshwcomeau.com/css/css-variables-for-react-devs/",
+      "content_type": "tech_tutorial",
+      "topic": "frontend",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.swyx.io/learn-in-public",
+      "content_type": "self_help",
+      "topic": "career",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://blog.samaltman.com/how-to-be-successful",
+      "content_type": "self_help",
+      "topic": "career",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://paulgraham.com/ds.html",
+      "content_type": "thought_leadership",
+      "topic": "startups",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://kentcdodds.com/blog/colocation",
+      "content_type": "tech_tutorial",
+      "topic": "frontend",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://tailwindcss.com/blog/tailwindcss-v4",
+      "content_type": "news_article",
+      "topic": "frontend",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.latent.space/p/why-prompt-engineering-matters",
+      "content_type": "thought_leadership",
+      "topic": "ai",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://mitchellh.com/writing/zig-and-rust",
+      "content_type": "thought_leadership",
+      "topic": "programming_languages",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.scattered-thoughts.net/writing/an-opinionated-guide-to-xargs",
+      "content_type": "tech_tutorial",
+      "topic": "devtools",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://blog.cloudflare.com/workers-ai/",
+      "content_type": "product_review",
+      "topic": "ai",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://arc.net/blog/arc-max",
+      "content_type": "news_article",
+      "topic": "product",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://openai.com/index/gpt-4-system-card/",
+      "content_type": "thought_leadership",
+      "topic": "ai",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://github.blog/engineering/architecture-optimization/mysql-for-large-scale-software/",
+      "content_type": "tech_tutorial",
+      "topic": "databases",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://danluu.com/simple-hierarchical/",
+      "content_type": "tech_tutorial",
+      "topic": "systems",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://blog.yoshuawuyts.com/state-machines/",
+      "content_type": "tech_tutorial",
+      "topic": "programming",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.uber.com/blog/h3/",
+      "content_type": "tech_tutorial",
+      "topic": "systems",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://supabase.com/blog/postgres-full-text-search-vs-the-rest",
+      "content_type": "product_review",
+      "topic": "databases",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://biomejs.dev/blog/biome-v1/",
+      "content_type": "news_article",
+      "topic": "devtools",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://htmx.org/essays/locality-of-behaviour/",
+      "content_type": "thought_leadership",
+      "topic": "frontend",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.figma.com/blog/livegraph-real-time-data-fetching-at-figma/",
+      "content_type": "tech_tutorial",
+      "topic": "systems",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://blog.railway.com/p/railway-raises-a-30m-series-a",
+      "content_type": "news_article",
+      "topic": "startups",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.youtube.com/watch?v=rI8tNMsozo0",
+      "content_type": "entertainment",
+      "topic": "tech_talks",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://drizzle.team/docs/get-started/neon-new",
+      "content_type": "tech_tutorial",
+      "topic": "databases",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://turso.tech/blog/why-sqlite-is-so-great-for-the-edge",
+      "content_type": "thought_leadership",
+      "topic": "databases",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://remix.run/blog/remix-vite-stable",
+      "content_type": "news_article",
+      "topic": "web_development",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://astro.build/blog/astro-5/",
+      "content_type": "news_article",
+      "topic": "web_development",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://orm.drizzle.team/docs/performance",
+      "content_type": "tech_tutorial",
+      "topic": "databases",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://react.dev/blog/2024/12/05/react-19",
+      "content_type": "news_article",
+      "topic": "frontend",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://nextjs.org/blog/next-15",
+      "content_type": "news_article",
+      "topic": "web_development",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.joshwcomeau.com/react/server-components/",
+      "content_type": "tech_tutorial",
+      "topic": "frontend",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://thenewstack.io/how-to-build-a-rag-pipeline/",
+      "content_type": "tech_tutorial",
+      "topic": "ai",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://www.benkuhn.net/progessays/",
+      "content_type": "self_help",
+      "topic": "career",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.kalzumeus.com/2011/10/28/dont-call-yourself-a-programmer/",
+      "content_type": "self_help",
+      "topic": "career",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://charity.wtf/2022/09/23/the-hierarchy-is-not-the-org-chart/",
+      "content_type": "thought_leadership",
+      "topic": "engineering_culture",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://neon.tech/blog/serverless-driver-for-postgres",
+      "content_type": "product_review",
+      "topic": "databases",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://planetscale.com/blog/bigger-is-not-always-better",
+      "content_type": "thought_leadership",
+      "topic": "databases",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://blog.sentry.io/we-removed-webpack-from-sentry/",
+      "content_type": "tech_tutorial",
+      "topic": "devtools",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://www.cursor.com/blog/problems-with-rags",
+      "content_type": "thought_leadership",
+      "topic": "ai",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://retool.com/blog/the-future-of-internal-tools",
+      "content_type": "thought_leadership",
+      "topic": "product",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://www.resend.com/blog/how-we-grew-to-10000-customers",
+      "content_type": "thought_leadership",
+      "topic": "startups",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://vercel.com/blog/ai-sdk-4-0",
+      "content_type": "news_article",
+      "topic": "ai",
+      "platform": "twitter"
+    },
+    {
+      "url": "https://posthog.com/blog/10x-engineers-do-they-exist",
+      "content_type": "thought_leadership",
+      "topic": "engineering_culture",
+      "platform": "linkedin"
+    },
+    {
+      "url": "https://www.svix.com/blog/how-we-built-a-webhook-service/",
+      "content_type": "tech_tutorial",
+      "topic": "systems",
+      "platform": "twitter"
+    }
+  ]
+}

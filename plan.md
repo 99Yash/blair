@@ -90,7 +90,7 @@ This plan implements `prd.md` in a staged, low-risk way. It is ordered by highes
 - Start with 500-2000 chars and ~15% overlap.
 - Tune by source length to balance quality, speed, and cost.
 
-### Task 8: Build chunk-level analysis reducer
+### ~~Task 8: Build chunk-level analysis reducer~~ ✅
 
 **Refs:** CHUNK-4, CHUNK-5  
 **Files:** `src/app/api/posts/generate/route.ts`, new `src/lib/ai/reducer.ts`

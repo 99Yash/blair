@@ -10,6 +10,8 @@ import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
+import { chunkContent } from '~/lib/ai/chunking';
+import { buildContentBrief, formatContentBrief } from '~/lib/ai/reducer';
 import { createPrompt } from '~/lib/ai/utils';
 import { auth } from '~/lib/auth/server';
 import {
@@ -181,27 +183,35 @@ export async function POST(request: Request) {
           return;
         }
 
-        const slicedContent = content.slice(0, 100000);
+        // Chunk the content using adaptive sizing (CHUNK-2, CHUNK-3)
+        const chunks = chunkContent(content);
+        telemetry.chunk_count = chunks.length;
 
         currentStage = PROGRESS_STAGES.ANALYZING;
         writer.write(
           createProgressData(
             PROGRESS_STAGES.ANALYZING,
-            'Analyzing scraped content...',
+            `Analyzing content across ${chunks.length} chunks...`,
             'loading'
           )
         );
 
+        // Run chunk-level analysis reducer (CHUNK-4, CHUNK-5)
+        let contentBriefText: string;
         let analysis;
         try {
-          const analysisModelId = 'gemini-2.0-flash-lite';
-          const result = await generateObject({
-            model: google(analysisModelId),
-            schema: scrapedContentAnalysisSchema,
-            prompt: `Analyze the following scraped content:
-${slicedContent}`,
-          });
-          analysis = result.object;
+          const [briefResult, analysisResult] = await Promise.all([
+            buildContentBrief(chunks),
+            generateObject({
+              model: google('gemini-2.0-flash-lite'),
+              schema: scrapedContentAnalysisSchema,
+              // Use first ~50k chars for the top-level analysis to stay within model limits
+              prompt: `Analyze the following scraped content:\n${content.slice(0, 50000)}`,
+            }),
+          ]);
+
+          contentBriefText = formatContentBrief(briefResult.brief);
+          analysis = analysisResult.object;
         } catch (err) {
           const errorMessage = getAIErrorMessage(err);
           writer.write(
@@ -225,7 +235,7 @@ ${slicedContent}`,
         writer.write(
           createProgressData(
             PROGRESS_STAGES.ANALYZING,
-            'Content analysis completed',
+            `Content analysis completed (${chunks.length} chunks)`,
             'success'
           )
         );
@@ -366,7 +376,10 @@ Link ownership: ${submissionData.link_ownership_type}
 Content summary: ${analysis.content_summary}
 Content type: ${analysis.content_type}
 Target audience: ${analysis.target_audience}
-Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
+Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10
+
+Source content brief (extracted from ${chunks.length} chunks):
+${contentBriefText || 'No detailed insights extracted.'}`,
           detailedTaskInstructions: getPlatformInstructions(
             submissionData.platform
           ),

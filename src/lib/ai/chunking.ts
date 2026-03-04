@@ -1,0 +1,179 @@
+/**
+ * Recursive boundary-aware content chunker.
+ *
+ * Ported from milkpod's `chunkSegmentText` with adaptations for
+ * article/web content (CHUNK-2, CHUNK-3 from prd.md).
+ */
+
+import {
+  CHUNKING_DEFAULT_MAX_LEN,
+  CHUNKING_DEFAULT_OVERLAP,
+  CHUNKING_DEFAULT_SEPARATORS,
+  CHUNKING_MAX_LEN,
+  CHUNKING_MIN_LEN,
+  CHUNKING_OVERLAP_RATIO,
+  CHUNKING_SCALE_CEIL,
+} from '~/lib/constants';
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface ChunkConfig {
+  /** Maximum characters per chunk. */
+  maxLen: number;
+  /** Number of overlap characters carried into the next chunk. */
+  overlap: number;
+  /** Ordered separator list (coarsest → finest). Must end with ''. */
+  separators: string[];
+}
+
+export interface ContentChunk {
+  /** Zero-based index of this chunk. */
+  chunk_index: number;
+  /** Character offset where this chunk starts in the source text. */
+  char_start: number;
+  /** Character offset where this chunk ends (exclusive) in the source text. */
+  char_end: number;
+  /** The chunk text. */
+  text: string;
+}
+
+// ---------------------------------------------------------------------------
+// Core recursive splitter
+// ---------------------------------------------------------------------------
+
+/**
+ * Recursively splits `text` using the first separator that appears in the
+ * text, falling back to finer separators when a fragment still exceeds
+ * `maxLen`. The separator list **must** end with `''` (character-level
+ * fallback) to guarantee every chunk fits within `maxLen`.
+ */
+export function chunkText(
+  text: string,
+  maxLen: number = CHUNKING_DEFAULT_MAX_LEN,
+  overlap: number = CHUNKING_DEFAULT_OVERLAP,
+  separators: string[] = CHUNKING_DEFAULT_SEPARATORS,
+): string[] {
+  if (text.length <= maxLen) return [text];
+
+  // Find the coarsest separator that exists in this text.
+  // The list ends with '' which always matches.
+  const sep = separators.find((s) => (s === '' ? true : text.includes(s))) ?? '';
+  const remaining = separators.slice(separators.indexOf(sep) + 1);
+
+  // Split on the chosen separator, re-attaching it to each fragment
+  // so we don't lose paragraph/sentence boundaries.
+  const splits =
+    sep === ''
+      ? [...text]
+      : text
+          .split(sep)
+          .flatMap((part, i, arr) =>
+            i < arr.length - 1 ? [part + sep] : [part],
+          );
+
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const piece of splits) {
+    if (current.length + piece.length > maxLen && current.length > 0) {
+      // If accumulated text still exceeds maxLen, recurse with finer seps.
+      if (current.length > maxLen && remaining.length > 0) {
+        chunks.push(
+          ...chunkText(current.trim(), maxLen, overlap, remaining),
+        );
+      } else {
+        chunks.push(current.trim());
+      }
+
+      // Carry overlap into the next chunk.
+      if (overlap > 0 && current.length > overlap) {
+        current = current.slice(-overlap);
+      } else {
+        current = '';
+      }
+    }
+    current += piece;
+  }
+
+  // Flush remainder.
+  if (current.trim().length > 0) {
+    if (current.length > maxLen && remaining.length > 0) {
+      chunks.push(
+        ...chunkText(current.trim(), maxLen, overlap, remaining),
+      );
+    } else {
+      chunks.push(current.trim());
+    }
+  }
+
+  return chunks;
+}
+
+// ---------------------------------------------------------------------------
+// Adaptive chunk configuration (CHUNK-2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes chunk size and overlap that scale linearly with source length.
+ *
+ * Short documents get smaller chunks (down to CHUNKING_MIN_LEN) so that
+ * each chunk is analysed with high granularity. Long documents get larger
+ * chunks (up to CHUNKING_MAX_LEN) to keep chunk counts manageable and
+ * reduce cost/latency.
+ *
+ * Ported from milkpod's `getMomentChunkConfig`.
+ */
+export function getAdaptiveChunkConfig(totalChars: number): ChunkConfig {
+  const t = Math.min(1, Math.max(0, totalChars / CHUNKING_SCALE_CEIL));
+  const maxLen = Math.round(CHUNKING_MIN_LEN + t * (CHUNKING_MAX_LEN - CHUNKING_MIN_LEN));
+  const overlap = Math.round(maxLen * CHUNKING_OVERLAP_RATIO);
+
+  return { maxLen, overlap, separators: CHUNKING_DEFAULT_SEPARATORS };
+}
+
+// ---------------------------------------------------------------------------
+// High-level wrapper with position metadata
+// ---------------------------------------------------------------------------
+
+/**
+ * Chunks source text and annotates each chunk with character offsets
+ * relative to the original input.
+ *
+ * When no explicit config is provided, uses adaptive sizing based on the
+ * total source length (CHUNK-2).
+ */
+export function chunkContent(
+  text: string,
+  config?: Partial<ChunkConfig>,
+): ContentChunk[] {
+  const adaptive = getAdaptiveChunkConfig(text.length);
+  const maxLen = config?.maxLen ?? adaptive.maxLen;
+  const overlap = config?.overlap ?? adaptive.overlap;
+  const separators = config?.separators ?? adaptive.separators;
+
+  const rawChunks = chunkText(text, maxLen, overlap, separators);
+
+  const result: ContentChunk[] = [];
+  let searchFrom = 0;
+
+  for (let i = 0; i < rawChunks.length; i++) {
+    const chunk = rawChunks[i];
+    const pos = text.indexOf(chunk, searchFrom);
+    const charStart = pos >= 0 ? pos : searchFrom;
+    const charEnd = charStart + chunk.length;
+
+    result.push({
+      chunk_index: i,
+      char_start: charStart,
+      char_end: charEnd,
+      text: chunk,
+    });
+
+    // Advance past the start of this chunk to handle overlap correctly.
+    if (pos >= 0) searchFrom = pos + 1;
+  }
+
+  return result;
+}

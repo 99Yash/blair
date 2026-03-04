@@ -3,37 +3,43 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   generateObject,
+  generateText,
   streamText,
 } from 'ai';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
+import { createId } from '~/db/schemas/helpers';
+import { chunkContent } from '~/lib/ai/chunking';
+import { buildContentBrief, formatContentBrief } from '~/lib/ai/reducer';
 import { createPrompt } from '~/lib/ai/utils';
 import { auth } from '~/lib/auth/server';
 import {
   PLATFORM_GENERATION_CONFIG,
-  TONE_WEIGHT_SIMILARITY_THRESHOLD,
+  TONE_WEIGHT_MAX,
 } from '~/lib/constants';
 import { AppError, createErrorResponse } from '~/lib/errors';
 import { firecrawl } from '~/lib/firecrawl';
 import {
   postFormSchema,
   scrapedContentAnalysisSchema,
+  type ScrapedContentAnalysis,
 } from '~/lib/schemas/post';
 import {
   createContentAnalysisData,
   createGeneratedPostData,
   createNotificationData,
   createProgressData,
+  createTelemetryData,
   createTrainingPostsData,
+  type GenerationTelemetry,
   PROGRESS_STAGES,
   StreamingPostMessage,
 } from '~/lib/types/streaming';
 import {
   createAuthError,
-  createConflictError,
   createValidationError,
   getAIErrorMessage,
 } from '~/lib/utils';
@@ -116,6 +122,20 @@ export async function POST(request: Request) {
       // Track the stage we are currently in so we can surface accurate errors
       let currentStage: (typeof PROGRESS_STAGES)[keyof typeof PROGRESS_STAGES] =
         PROGRESS_STAGES.SCRAPING;
+
+      // Telemetry tracking
+      const traceId = crypto.randomUUID();
+      const startTime = performance.now();
+      const telemetry: GenerationTelemetry = {
+        trace_id: traceId,
+        model_id: '',
+        chunk_count: 0,
+        rewrite_attempts: 0,
+        validation_failures: 0,
+        char_count: 0,
+        latency_ms: 0,
+      };
+
       try {
         // Send initial progress
         writer.write(
@@ -125,9 +145,6 @@ export async function POST(request: Request) {
             'loading'
           )
         );
-
-        // Note: We removed the existence check to avoid race conditions.
-        // Unique constraint violations will be handled below.
 
         // Step 1: Scrape and analyze content
         currentStage = PROGRESS_STAGES.SCRAPING;
@@ -169,36 +186,52 @@ export async function POST(request: Request) {
           return;
         }
 
-        const slicedContent = content.slice(0, 100000);
+        // Chunk the content using adaptive sizing (CHUNK-2, CHUNK-3)
+        const chunks = chunkContent(content);
+        telemetry.chunk_count = chunks.length;
 
         currentStage = PROGRESS_STAGES.ANALYZING;
         writer.write(
           createProgressData(
             PROGRESS_STAGES.ANALYZING,
-            'Analyzing scraped content...',
+            `Analyzing content across ${chunks.length} chunks...`,
             'loading'
           )
         );
 
-        let analysis;
-        try {
-          const result = await generateObject({
-            model: google('gemini-2.0-flash-lite'),
+        // Run chunk-level analysis reducer (CHUNK-4, CHUNK-5)
+        let contentBriefText: string = '';
+        let analysis: ScrapedContentAnalysis | null = null;
+
+        const analyzeContent = () =>
+          generateObject({
+            model: google('gemini-2.0-flash'),
             schema: scrapedContentAnalysisSchema,
-            prompt: `Analyze the following scraped content:
-${slicedContent}`,
+            prompt: `Analyze the following scraped content:\n${content.slice(0, 50000)}`,
           });
-          analysis = result.object;
-        } catch (err) {
-          const errorMessage = getAIErrorMessage(err);
-          writer.write(
-            createProgressData(PROGRESS_STAGES.ANALYZING, errorMessage, 'error')
-          );
-          writer.write(createNotificationData(errorMessage, 'error'));
-          return;
+
+        // Run both in parallel; each is independently fault-tolerant
+        const [briefResult, analysisResult] = await Promise.all([
+          buildContentBrief(chunks).catch((err) => {
+            console.warn('Content brief failed:', err instanceof Error ? err.message : err);
+            return null;
+          }),
+          analyzeContent()
+            .catch(() => analyzeContent())
+            .catch((err) => {
+              console.warn('Content analysis failed:', err instanceof Error ? err.message : err);
+              return null;
+            }),
+        ]);
+
+        if (briefResult) {
+          contentBriefText = formatContentBrief(briefResult.brief);
+        }
+        if (analysisResult) {
+          analysis = analysisResult.object;
         }
 
-        if (!analysis || !analysis.content_summary) {
+        if (!analysis) {
           const errorMessage =
             'Failed to analyze website content. Please try again.';
           writer.write(
@@ -212,7 +245,7 @@ ${slicedContent}`,
         writer.write(
           createProgressData(
             PROGRESS_STAGES.ANALYZING,
-            'Content analysis completed',
+            `Content analysis completed (${chunks.length} chunks)`,
             'success'
           )
         );
@@ -242,17 +275,15 @@ ${slicedContent}`,
         // Convert toneProfile to JSON so we can use it inside SQL
         const toneProfileJson = JSON.stringify(toneProfile);
 
+        // Weighted distance scoring: each matching tone dimension contributes
+        // a similarity between 0 (opposite ends of 0-100) and 1 (exact match).
+        // The total score is the sum across all matched dimensions.
         const toneSimilaritySql = sql`
           SELECT
             tp.*,
             (
               SELECT COALESCE(SUM(
-                CASE
-                  WHEN ABS((tone_elem->>'weight')::float8 - ut.weight) <= ${sql.param(
-                    TONE_WEIGHT_SIMILARITY_THRESHOLD
-                  )} THEN 1
-                  ELSE 0
-                END
+                GREATEST(0, 1.0 - ABS((tone_elem->>'weight')::float8 - ut.weight) / ${sql.param(TONE_WEIGHT_MAX)}::float8)
               ), 0)
               FROM jsonb_array_elements(tp.tone_profile) AS tone_elem
               JOIN jsonb_to_recordset(${toneProfileJson}::jsonb) AS ut(tone text, weight float8)
@@ -353,7 +384,10 @@ Link ownership: ${submissionData.link_ownership_type}
 Content summary: ${analysis.content_summary}
 Content type: ${analysis.content_type}
 Target audience: ${analysis.target_audience}
-Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
+Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10
+
+Source content brief (extracted from ${chunks.length} chunks):
+${contentBriefText || 'No detailed insights extracted.'}`,
           detailedTaskInstructions: getPlatformInstructions(
             submissionData.platform
           ),
@@ -362,28 +396,28 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           outputFormatting: `Reply with the post content only, no explanations.`,
         });
 
-        let generationResult = streamText({
-          model: google('gemini-2.0-flash-lite'),
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-        });
+        const generationModelId = 'gemini-2.0-flash';
+        telemetry.model_id = generationModelId;
 
-        // Collect the generated content and stream it to the client
+        const modelMessages = [
+          { role: 'user' as const, content: prompt },
+        ];
+
+        // Try streaming first, fall back to non-streaming on failure
         let generatedContent = '';
         try {
+          const generationResult = streamText({
+            model: google(generationModelId),
+            messages: modelMessages,
+          });
+
           for await (const delta of generationResult.textStream) {
             generatedContent += delta;
 
-            // Stream the content as it's being generated (send every chunk)
             writer.write(
               createGeneratedPostData(generatedContent, submissionData.platform)
             );
 
-            // Also update progress every 50 characters
             if (generatedContent.length % 50 === 0) {
               writer.write(
                 createProgressData(
@@ -394,17 +428,34 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
               );
             }
           }
-        } catch (err) {
-          const errorMessage = getAIErrorMessage(err);
-          writer.write(
-            createProgressData(
-              PROGRESS_STAGES.GENERATING,
-              errorMessage,
-              'error'
-            )
+        } catch (streamErr) {
+          console.warn(
+            'streamText failed, retrying with generateText:',
+            streamErr instanceof Error ? streamErr.message : streamErr
           );
-          writer.write(createNotificationData(errorMessage, 'error'));
-          return;
+          generatedContent = '';
+
+          try {
+            const fallbackResult = await generateText({
+              model: google(generationModelId),
+              messages: modelMessages,
+            });
+            generatedContent = fallbackResult.text;
+            writer.write(
+              createGeneratedPostData(generatedContent, submissionData.platform)
+            );
+          } catch (fallbackErr) {
+            const errorMessage = getAIErrorMessage(fallbackErr);
+            writer.write(
+              createProgressData(
+                PROGRESS_STAGES.GENERATING,
+                errorMessage,
+                'error'
+              )
+            );
+            writer.write(createNotificationData(errorMessage, 'error'));
+            return;
+          }
         }
 
         if (!generatedContent.trim()) {
@@ -439,68 +490,50 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           )
         );
 
-        const insertData = {
-          original_url: submissionData.original_url,
-          post_content: generatedContent,
-          platform: submissionData.platform,
-          content_type: analysis.content_type,
-          content_summary: analysis.content_summary,
-          target_audience: analysis.target_audience,
-          link_ownership_type: submissionData.link_ownership_type,
-          user_id: session.user.id,
-        };
+        // Atomically compute and insert the next version number to avoid
+        // race conditions between concurrent generation requests.
+        await db.execute(sql`
+          INSERT INTO generate_posts (
+            id, post_content, platforms, content_type, original_url,
+            content_summary, target_audience, link_ownership_type,
+            user_id, version
+          ) VALUES (
+            ${createId()},
+            ${generatedContent},
+            ${submissionData.platform},
+            ${analysis.content_type},
+            ${submissionData.original_url},
+            ${analysis.content_summary},
+            ${analysis.target_audience},
+            ${submissionData.link_ownership_type},
+            ${session.user.id},
+            COALESCE((
+              SELECT MAX(version) FROM generate_posts
+              WHERE user_id = ${session.user.id}
+                AND original_url = ${submissionData.original_url}
+            ), 0) + 1
+          )
+        `);
 
-        try {
-          await db.insert(generate_posts).values(insertData);
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.SAVING,
+            'Post saved successfully',
+            'success'
+          )
+        );
 
-          writer.write(
-            createProgressData(
-              PROGRESS_STAGES.SAVING,
-              'Post saved successfully',
-              'success'
-            )
-          );
+        writer.write(
+          createNotificationData(
+            'Post generation completed successfully!',
+            'success'
+          )
+        );
 
-          // Note: Generated post data is already streamed during generation
-          // No need to send it again here
-
-          writer.write(
-            createNotificationData(
-              'Post generation completed successfully!',
-              'success'
-            )
-          );
-        } catch (error) {
-          // Handle unique constraint violation
-          const dbError =
-            typeof error === 'object' && error !== null
-              ? (error as { code?: string; message?: string })
-              : undefined;
-
-          if (
-            dbError?.code === '23505' ||
-            dbError?.message?.includes('unique constraint')
-          ) {
-            const conflictError = createConflictError(
-              'You have already added this URL',
-              error
-            );
-            writer.write(
-              createProgressData(
-                PROGRESS_STAGES.SAVING,
-                conflictError.message,
-                'error'
-              )
-            );
-            writer.write(
-              createNotificationData(conflictError.message, 'error')
-            );
-            return;
-          }
-
-          // Re-throw other errors to be handled by the outer catch
-          throw error;
-        }
+        // Emit telemetry
+        telemetry.char_count = generatedContent.length;
+        telemetry.latency_ms = Math.round(performance.now() - startTime);
+        writer.write(createTelemetryData(telemetry));
       } catch (err) {
         // This catch block handles unexpected errors that weren't caught by stage-specific handlers
         console.error(
@@ -516,6 +549,10 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
 
         writer.write(createProgressData(currentStage, errorMessage, 'error'));
         writer.write(createNotificationData(errorMessage, 'error'));
+
+        // Emit telemetry even on failure
+        telemetry.latency_ms = Math.round(performance.now() - startTime);
+        writer.write(createTelemetryData(telemetry));
       }
     },
   });

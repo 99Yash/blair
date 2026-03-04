@@ -1,0 +1,1 @@
+ALTER TABLE "training_posts" ADD COLUMN "source_content" text;

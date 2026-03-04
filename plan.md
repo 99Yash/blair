@@ -42,7 +42,7 @@ This plan implements `prd.md` in a staged, low-risk way. It is ordered by highes
 - Store scraped source text in a dedicated field/table instead of overwriting post content.
 - Add server-side checks to reject article-dump-like training inputs.
 
-### Task 4: Enable multiple generated drafts per URL
+### ~~Task 4: Enable multiple generated drafts per URL~~ ✅
 
 **Refs:** ITER-1, DATA-4  
 **Files:** `src/db/schemas/generate-post.ts`, new drizzle migration, `src/app/api/posts/generate/route.ts`

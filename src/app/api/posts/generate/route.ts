@@ -5,7 +5,7 @@ import {
   generateObject,
   streamText,
 } from 'ai';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
@@ -35,7 +35,6 @@ import {
 } from '~/lib/types/streaming';
 import {
   createAuthError,
-  createConflictError,
   createValidationError,
   getAIErrorMessage,
 } from '~/lib/utils';
@@ -141,9 +140,6 @@ export async function POST(request: Request) {
             'loading'
           )
         );
-
-        // Note: We removed the existence check to avoid race conditions.
-        // Unique constraint violations will be handled below.
 
         // Step 1: Scrape and analyze content
         currentStage = PROGRESS_STAGES.SCRAPING;
@@ -459,6 +455,22 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           )
         );
 
+        // Compute version number for this URL + user combination
+        const existingDrafts = await db
+          .select({ version: generate_posts.version })
+          .from(generate_posts)
+          .where(
+            and(
+              eq(generate_posts.user_id, session.user.id),
+              eq(generate_posts.original_url, submissionData.original_url)
+            )
+          )
+          .orderBy(sql`${generate_posts.version} DESC`)
+          .limit(1);
+
+        const nextVersion =
+          existingDrafts.length > 0 ? existingDrafts[0].version + 1 : 1;
+
         const insertData = {
           original_url: submissionData.original_url,
           post_content: generatedContent,
@@ -468,71 +480,37 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           target_audience: analysis.target_audience,
           link_ownership_type: submissionData.link_ownership_type,
           user_id: session.user.id,
+          version: nextVersion,
         };
 
-        try {
-          await db.insert(generate_posts).values(insertData);
+        await db.insert(generate_posts).values(insertData);
 
-          writer.write(
-            createProgressData(
-              PROGRESS_STAGES.SAVING,
-              'Post saved successfully',
-              'success'
-            )
-          );
+        writer.write(
+          createProgressData(
+            PROGRESS_STAGES.SAVING,
+            'Post saved successfully',
+            'success'
+          )
+        );
 
-          // Note: Generated post data is already streamed during generation
-          // No need to send it again here
+        writer.write(
+          createNotificationData(
+            'Post generation completed successfully!',
+            'success'
+          )
+        );
 
-          writer.write(
-            createNotificationData(
-              'Post generation completed successfully!',
-              'success'
-            )
-          );
-
-          // Emit telemetry
-          telemetry.char_count = generatedContent.length;
-          telemetry.latency_ms = Math.round(performance.now() - startTime);
-          const usage = await generationResult.usage;
-          if (usage) {
-            telemetry.token_usage = {
-              prompt_tokens: usage.inputTokens ?? 0,
-              completion_tokens: usage.outputTokens ?? 0,
-            };
-          }
-          writer.write(createTelemetryData(telemetry));
-        } catch (error) {
-          // Handle unique constraint violation
-          const dbError =
-            typeof error === 'object' && error !== null
-              ? (error as { code?: string; message?: string })
-              : undefined;
-
-          if (
-            dbError?.code === '23505' ||
-            dbError?.message?.includes('unique constraint')
-          ) {
-            const conflictError = createConflictError(
-              'You have already added this URL',
-              error
-            );
-            writer.write(
-              createProgressData(
-                PROGRESS_STAGES.SAVING,
-                conflictError.message,
-                'error'
-              )
-            );
-            writer.write(
-              createNotificationData(conflictError.message, 'error')
-            );
-            return;
-          }
-
-          // Re-throw other errors to be handled by the outer catch
-          throw error;
+        // Emit telemetry
+        telemetry.char_count = generatedContent.length;
+        telemetry.latency_ms = Math.round(performance.now() - startTime);
+        const usage = await generationResult.usage;
+        if (usage) {
+          telemetry.token_usage = {
+            prompt_tokens: usage.inputTokens ?? 0,
+            completion_tokens: usage.outputTokens ?? 0,
+          };
         }
+        writer.write(createTelemetryData(telemetry));
       } catch (err) {
         // This catch block handles unexpected errors that weren't caught by stage-specific handlers
         console.error(

@@ -1,5 +1,17 @@
 import { UIMessage } from 'ai';
 
+// Telemetry payload emitted once per generation request
+export type GenerationTelemetry = {
+  trace_id: string;
+  model_id: string;
+  chunk_count: number;
+  rewrite_attempts: number;
+  validation_failures: number;
+  char_count: number;
+  latency_ms: number;
+  token_usage?: { prompt_tokens: number; completion_tokens: number };
+};
+
 // Define mapped types for full type safety
 export type StreamingDataMap = {
   progress: {
@@ -32,6 +44,7 @@ export type StreamingDataMap = {
     platform: string;
     estimated_engagement?: number;
   };
+  telemetry: GenerationTelemetry;
 };
 
 // Type for the actual chunk format expected by AI SDK
@@ -143,6 +156,17 @@ export function createGeneratedPostData(
       estimated_engagement,
     }),
     id: 'generated-post', // Stable ID for streaming updates
+  };
+}
+
+// Helper function to create telemetry data parts
+// Emitted once at the end of a generation request
+export function createTelemetryData(
+  telemetry: GenerationTelemetry
+): StreamingChunk<'telemetry'> {
+  return {
+    ...createStreamingData('telemetry', telemetry),
+    id: `telemetry-${telemetry.trace_id}`,
   };
 }
 

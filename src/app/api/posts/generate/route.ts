@@ -27,7 +27,9 @@ import {
   createGeneratedPostData,
   createNotificationData,
   createProgressData,
+  createTelemetryData,
   createTrainingPostsData,
+  type GenerationTelemetry,
   PROGRESS_STAGES,
   StreamingPostMessage,
 } from '~/lib/types/streaming';
@@ -116,6 +118,20 @@ export async function POST(request: Request) {
       // Track the stage we are currently in so we can surface accurate errors
       let currentStage: (typeof PROGRESS_STAGES)[keyof typeof PROGRESS_STAGES] =
         PROGRESS_STAGES.SCRAPING;
+
+      // Telemetry tracking
+      const traceId = crypto.randomUUID();
+      const startTime = performance.now();
+      const telemetry: GenerationTelemetry = {
+        trace_id: traceId,
+        model_id: '',
+        chunk_count: 0,
+        rewrite_attempts: 0,
+        validation_failures: 0,
+        char_count: 0,
+        latency_ms: 0,
+      };
+
       try {
         // Send initial progress
         writer.write(
@@ -182,8 +198,9 @@ export async function POST(request: Request) {
 
         let analysis;
         try {
+          const analysisModelId = 'gemini-2.0-flash-lite';
           const result = await generateObject({
-            model: google('gemini-2.0-flash-lite'),
+            model: google(analysisModelId),
             schema: scrapedContentAnalysisSchema,
             prompt: `Analyze the following scraped content:
 ${slicedContent}`,
@@ -362,8 +379,11 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
           outputFormatting: `Reply with the post content only, no explanations.`,
         });
 
-        let generationResult = streamText({
-          model: google('gemini-2.0-flash-lite'),
+        const generationModelId = 'gemini-2.0-flash-lite';
+        telemetry.model_id = generationModelId;
+
+        const generationResult = streamText({
+          model: google(generationModelId),
           messages: [
             {
               role: 'user',
@@ -470,6 +490,18 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
               'success'
             )
           );
+
+          // Emit telemetry
+          telemetry.char_count = generatedContent.length;
+          telemetry.latency_ms = Math.round(performance.now() - startTime);
+          const usage = await generationResult.usage;
+          if (usage) {
+            telemetry.token_usage = {
+              prompt_tokens: usage.inputTokens ?? 0,
+              completion_tokens: usage.outputTokens ?? 0,
+            };
+          }
+          writer.write(createTelemetryData(telemetry));
         } catch (error) {
           // Handle unique constraint violation
           const dbError =
@@ -516,6 +548,10 @@ Sales pitch strength: ${Math.round(analysis.sales_pitch_strength / 10)}/10`,
 
         writer.write(createProgressData(currentStage, errorMessage, 'error'));
         writer.write(createNotificationData(errorMessage, 'error'));
+
+        // Emit telemetry even on failure
+        telemetry.latency_ms = Math.round(performance.now() - startTime);
+        writer.write(createTelemetryData(telemetry));
       }
     },
   });

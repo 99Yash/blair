@@ -17,15 +17,15 @@ This plan implements `prd.md` in a staged, low-risk way. It is ordered by highes
 - ~~Define rubric dimensions: specificity, originality, voice, platform compliance.~~
 - ~~Save baseline scores from current pipeline for before/after comparison.~~
 
-### Task 2: Add structured generation telemetry contract
+### ~~Task 2: Add structured generation telemetry contract~~ ✅
 
-**Refs:** OBS-2  
+**Refs:** OBS-2
 **Files:** `src/app/api/posts/generate/route.ts`, `src/lib/types/streaming.ts`
 
 **What to do**
 
-- Add structured event payloads for `chunk_count`, `model_id`, `rewrite_attempts`, and `validation_failures`.
-- Include trace IDs per generation request.
+- ~~Add structured event payloads for `chunk_count`, `model_id`, `rewrite_attempts`, and `validation_failures`.~~
+- ~~Include trace IDs per generation request.~~
 
 ---
 

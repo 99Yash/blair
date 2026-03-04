@@ -9,6 +9,10 @@ import {
   CHUNKING_DEFAULT_MAX_LEN,
   CHUNKING_DEFAULT_OVERLAP,
   CHUNKING_DEFAULT_SEPARATORS,
+  CHUNKING_MAX_LEN,
+  CHUNKING_MIN_LEN,
+  CHUNKING_OVERLAP_RATIO,
+  CHUNKING_SCALE_CEIL,
 } from '~/lib/constants';
 
 // ---------------------------------------------------------------------------
@@ -108,20 +112,46 @@ export function chunkText(
 }
 
 // ---------------------------------------------------------------------------
+// Adaptive chunk configuration (CHUNK-2)
+// ---------------------------------------------------------------------------
+
+/**
+ * Computes chunk size and overlap that scale linearly with source length.
+ *
+ * Short documents get smaller chunks (down to CHUNKING_MIN_LEN) so that
+ * each chunk is analysed with high granularity. Long documents get larger
+ * chunks (up to CHUNKING_MAX_LEN) to keep chunk counts manageable and
+ * reduce cost/latency.
+ *
+ * Ported from milkpod's `getMomentChunkConfig`.
+ */
+export function getAdaptiveChunkConfig(totalChars: number): ChunkConfig {
+  const t = Math.min(1, Math.max(0, totalChars / CHUNKING_SCALE_CEIL));
+  const maxLen = Math.round(CHUNKING_MIN_LEN + t * (CHUNKING_MAX_LEN - CHUNKING_MIN_LEN));
+  const overlap = Math.round(maxLen * CHUNKING_OVERLAP_RATIO);
+
+  return { maxLen, overlap, separators: CHUNKING_DEFAULT_SEPARATORS };
+}
+
+// ---------------------------------------------------------------------------
 // High-level wrapper with position metadata
 // ---------------------------------------------------------------------------
 
 /**
  * Chunks source text and annotates each chunk with character offsets
  * relative to the original input.
+ *
+ * When no explicit config is provided, uses adaptive sizing based on the
+ * total source length (CHUNK-2).
  */
 export function chunkContent(
   text: string,
   config?: Partial<ChunkConfig>,
 ): ContentChunk[] {
-  const maxLen = config?.maxLen ?? CHUNKING_DEFAULT_MAX_LEN;
-  const overlap = config?.overlap ?? CHUNKING_DEFAULT_OVERLAP;
-  const separators = config?.separators ?? CHUNKING_DEFAULT_SEPARATORS;
+  const adaptive = getAdaptiveChunkConfig(text.length);
+  const maxLen = config?.maxLen ?? adaptive.maxLen;
+  const overlap = config?.overlap ?? adaptive.overlap;
+  const separators = config?.separators ?? adaptive.separators;
 
   const rawChunks = chunkText(text, maxLen, overlap, separators);
 

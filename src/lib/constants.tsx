@@ -15,6 +15,26 @@ export const CHUNKING_DEFAULT_MAX_LEN = 2000;
 /** Default overlap characters between adjacent chunks (~15% of max). */
 export const CHUNKING_DEFAULT_OVERLAP = 300;
 
+// ---------------------------------------------------------------------------
+// Adaptive chunking (CHUNK-2) — scales chunk size with source length
+// ---------------------------------------------------------------------------
+
+/** Minimum chunk size (chars) for short documents. */
+export const CHUNKING_MIN_LEN = 500;
+
+/** Maximum chunk size (chars) for long documents. */
+export const CHUNKING_MAX_LEN = 2000;
+
+/**
+ * Source length (chars) at which the adaptive scaler tops out at
+ * CHUNKING_MAX_LEN. Documents shorter than this get proportionally
+ * smaller chunks.
+ */
+export const CHUNKING_SCALE_CEIL = 80_000;
+
+/** Overlap as a fraction of the computed chunk size (0-1). */
+export const CHUNKING_OVERLAP_RATIO = 0.15;
+
 /**
  * Ordered separators from coarsest to finest boundary.
  * The list **must** end with '' (character-level fallback) so that every

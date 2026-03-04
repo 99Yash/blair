@@ -79,7 +79,7 @@ This plan implements `prd.md` in a staged, low-risk way. It is ordered by highes
 - Keep overlap support and hard max chunk length guarantees.
 - Expose configurable separators and overlap percentages.
 
-### Task 7: Implement adaptive chunk config
+### ~~Task 7: Implement adaptive chunk config~~ ✅
 
 **Refs:** CHUNK-2  
 **Files:** `src/lib/ai/chunking.ts`

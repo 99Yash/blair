@@ -71,6 +71,13 @@
       "when": 1760886657585,
       "tag": "0009_remove_call_to_action_type",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1772595767580,
+      "tag": "0010_nervous_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

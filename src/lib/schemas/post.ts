@@ -1,13 +1,16 @@
 import * as z from 'zod/v4';
 import { GENERATED_POST_CONTENT_MAX_LENGTH } from '../constants';
 
+// Max across all platforms (Facebook = 63206). Server enforces per-platform limits.
+const TRAINING_POST_CONTENT_MAX_LENGTH = 63206;
+
 export const postFormSchema = z.object({
   post_content: z
     .string()
     .min(1, 'Post content is required')
     .max(
-      GENERATED_POST_CONTENT_MAX_LENGTH,
-      `Post content must be less than ${GENERATED_POST_CONTENT_MAX_LENGTH} characters`
+      TRAINING_POST_CONTENT_MAX_LENGTH,
+      `Post content must be less than ${TRAINING_POST_CONTENT_MAX_LENGTH} characters`
     ),
   platform: z.enum(['twitter', 'instagram', 'facebook', 'linkedin'], {
     message: 'Platform is required',

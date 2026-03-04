@@ -31,7 +31,7 @@ This plan implements `prd.md` in a staged, low-risk way. It is ordered by highes
 
 ## Phase 1 - Data integrity and iteration model
 
-### Task 3: Fix training post storage semantics
+### ~~Task 3: Fix training post storage semantics~~ ✅
 
 **Refs:** DATA-1, DATA-2, DATA-3  
 **Files:** `src/app/api/posts/train/route.ts`, `src/db/schemas/training-post.ts`, new drizzle migration

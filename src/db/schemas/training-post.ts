@@ -63,6 +63,7 @@ export const training_posts = pgTable(
       .$defaultFn(() => createId())
       .primaryKey(),
     post_content: text('post_content').notNull(),
+    source_content: text('source_content'),
     platforms: platforms('platforms').notNull(),
     content_type: linkTypeEnum('content_type').notNull(),
     original_url: text('original_url').notNull(),

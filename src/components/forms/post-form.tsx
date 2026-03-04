@@ -24,7 +24,7 @@ import { SingleSelect } from '~/components/ui/select';
 import { Textarea } from '~/components/ui/textarea';
 
 import * as React from 'react';
-import { GENERATED_POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
+import { PLATFORM_GENERATION_CONFIG } from '~/lib/constants';
 import { postFormSchema, type PostFormData } from '~/lib/schemas/post';
 
 type OptionItem = { value: string; label: string };
@@ -87,6 +87,9 @@ export function PostForm() {
   };
 
   const postContentLength = form.watch('post_content').length;
+  const selectedPlatform = form.watch('platform');
+  const platformCharLimit =
+    PLATFORM_GENERATION_CONFIG[selectedPlatform].characterLimit;
 
   const handleScrapeAndAnalyze = async () => {
     const url = form.getValues('original_url');
@@ -158,7 +161,7 @@ export function PostForm() {
                         The main caption or content for your social media post
                       </FieldDescription>
                       <span>
-                        {postContentLength}/{GENERATED_POST_CONTENT_MAX_LENGTH}
+                        {postContentLength}/{platformCharLimit}
                       </span>{' '}
                       {/* Character counter */}
                     </div>

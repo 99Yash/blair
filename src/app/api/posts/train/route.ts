@@ -7,7 +7,10 @@ import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { training_posts } from '~/db/schemas';
 import { auth } from '~/lib/auth/server';
-import { SCRAPED_POST_CONTENT_MAX_LENGTH } from '~/lib/constants';
+import {
+  PLATFORM_GENERATION_CONFIG,
+  SCRAPED_POST_CONTENT_MAX_LENGTH,
+} from '~/lib/constants';
 import { AppError, createErrorResponse } from '~/lib/errors';
 import { firecrawl } from '~/lib/firecrawl';
 import {
@@ -21,6 +24,22 @@ import {
   createExternalServiceError,
   createValidationError,
 } from '~/lib/utils';
+
+/**
+ * Detects whether submitted post_content looks like a raw article dump
+ * rather than authored social media text.
+ */
+function isArticleDump(content: string): boolean {
+  // Markdown headers are not used in social posts
+  if (/^#{1,6}\s/m.test(content)) return true;
+  // Code fences signal article/tutorial content
+  if (content.includes('```')) return true;
+  // Markdown image syntax
+  if (/!\[.*\]\(.*\)/.test(content)) return true;
+  // Extremely long content (social posts are never this long)
+  if (content.split(/\s+/).length > 1000) return true;
+  return false;
+}
 
 export async function POST(request: Request) {
   const session = await auth.api.getSession({
@@ -55,6 +74,30 @@ export async function POST(request: Request) {
     });
   }
   const validatedBody = parseResult.data;
+
+  // Validate post_content length against platform character limit (DATA-3)
+  const platformConfig = PLATFORM_GENERATION_CONFIG[validatedBody.platform];
+  if (validatedBody.post_content.length > platformConfig.characterLimit) {
+    const error = new AppError({
+      code: 'UNPROCESSABLE_CONTENT',
+      message: `Post content exceeds ${validatedBody.platform} character limit of ${platformConfig.characterLimit}`,
+    });
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
+  }
+
+  // Reject article-dump-like training inputs (DATA-3)
+  if (isArticleDump(validatedBody.post_content)) {
+    const error = new AppError({
+      code: 'UNPROCESSABLE_CONTENT',
+      message:
+        'Post content appears to be a raw article. Please provide your authored social media post text.',
+    });
+    return NextResponse.json(createErrorResponse(error), {
+      status: error.getStatusFromCode(),
+    });
+  }
 
   try {
     // Check if user already has a post with this URL
@@ -91,18 +134,19 @@ export async function POST(request: Request) {
       prompt: `Analyze the following scraped content: ${slicedContent} and return the analysis in the schema provided.`,
     });
 
-    // Generate embeddings for post content and content summary
+    // Generate embeddings for actual post content and content summary
     const { embeddings } = await embedMany({
       model: openai.textEmbeddingModel('text-embedding-3-small'),
       values: [
-        scrapedContent.markdown ?? '', // post content embedding
-        analysis.content_summary, // content summary embedding
+        validatedBody.post_content, // embed actual social post, not scraped article
+        analysis.content_summary,
       ],
     });
 
     await db.insert(training_posts).values({
       original_url: validatedBody.original_url,
-      post_content: scrapedContent.markdown ?? '',
+      post_content: validatedBody.post_content, // user-authored post text (DATA-1 fix)
+      source_content: scrapedContent.markdown ?? '', // scraped article stored separately (DATA-2)
       platforms: validatedBody.platform,
       content_type: analysis.content_type,
       content_summary: analysis.content_summary,

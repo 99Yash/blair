@@ -5,6 +5,40 @@ export const GENERATED_POST_CONTENT_MAX_LENGTH = 280;
 export const SCRAPED_POST_CONTENT_MAX_LENGTH = 100000;
 export const TONE_WEIGHT_SIMILARITY_THRESHOLD = 0.15;
 
+// ---------------------------------------------------------------------------
+// Chunking defaults (CHUNK-2, CHUNK-3)
+// ---------------------------------------------------------------------------
+
+/** Default maximum characters per chunk. */
+export const CHUNKING_DEFAULT_MAX_LEN = 2000;
+
+/** Default overlap characters between adjacent chunks (~15% of max). */
+export const CHUNKING_DEFAULT_OVERLAP = 300;
+
+/**
+ * Ordered separators from coarsest to finest boundary.
+ * The list **must** end with '' (character-level fallback) so that every
+ * chunk is guaranteed to fit within the max length.
+ */
+export const CHUNKING_DEFAULT_SEPARATORS: string[] = [
+  '\n\n',  // paragraph
+  '\n',    // line
+  '. ',    // sentence (with trailing space)
+  '! ',
+  '? ',
+  ': ',
+  '; ',
+  ', ',
+  '.',     // sentence (no trailing space)
+  '!',
+  '?',
+  ':',
+  ';',
+  ',',
+  ' ',     // word
+  '',      // character fallback
+];
+
 export const PLATFORM_GENERATION_CONFIG = {
   twitter: {
     characterLimit: 280,

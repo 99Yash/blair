@@ -68,7 +68,7 @@ This plan implements `prd.md` in a staged, low-risk way. It is ordered by highes
 
 ## Phase 2 - Chunking foundation (milkpod-style)
 
-### Task 6: Implement recursive content chunker
+### ~~Task 6: Implement recursive content chunker~~ ✅
 
 **Refs:** CHUNK-2, CHUNK-3  
 **Files:** new `src/lib/ai/chunking.ts`, `src/lib/constants.tsx`

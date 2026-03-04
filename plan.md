@@ -115,7 +115,7 @@ This plan implements `prd.md` in a staged, low-risk way. It is ordered by highes
 
 ## Phase 3 - Retrieval and context quality
 
-### Task 10: Fix tone similarity scoring
+### ~~Task 10: Fix tone similarity scoring~~ ✅
 
 **Refs:** RET-1, RET-2  
 **Files:** `src/lib/constants.tsx`, `src/app/api/posts/generate/route.ts`

@@ -16,7 +16,7 @@ import { createPrompt } from '~/lib/ai/utils';
 import { auth } from '~/lib/auth/server';
 import {
   PLATFORM_GENERATION_CONFIG,
-  TONE_WEIGHT_SIMILARITY_THRESHOLD,
+  TONE_WEIGHT_MAX,
 } from '~/lib/constants';
 import { AppError, createErrorResponse } from '~/lib/errors';
 import { firecrawl } from '~/lib/firecrawl';
@@ -265,17 +265,15 @@ export async function POST(request: Request) {
         // Convert toneProfile to JSON so we can use it inside SQL
         const toneProfileJson = JSON.stringify(toneProfile);
 
+        // Weighted distance scoring: each matching tone dimension contributes
+        // a similarity between 0 (opposite ends of 0-100) and 1 (exact match).
+        // The total score is the sum across all matched dimensions.
         const toneSimilaritySql = sql`
           SELECT
             tp.*,
             (
               SELECT COALESCE(SUM(
-                CASE
-                  WHEN ABS((tone_elem->>'weight')::float8 - ut.weight) <= ${sql.param(
-                    TONE_WEIGHT_SIMILARITY_THRESHOLD
-                  )} THEN 1
-                  ELSE 0
-                END
+                GREATEST(0, 1.0 - ABS((tone_elem->>'weight')::float8 - ut.weight) / ${sql.param(TONE_WEIGHT_MAX)}::float8)
               ), 0)
               FROM jsonb_array_elements(tp.tone_profile) AS tone_elem
               JOIN jsonb_to_recordset(${toneProfileJson}::jsonb) AS ut(tone text, weight float8)

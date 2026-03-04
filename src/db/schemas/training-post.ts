@@ -73,7 +73,7 @@ export const training_posts = pgTable(
       .default(100),
     tone_profile: jsonb('tone_profile')
       .$type<
-        Array<{ tone: (typeof toneEnum.enumValues)[number]; weight: number }> // max weight is 1.00
+        Array<{ tone: (typeof toneEnum.enumValues)[number]; weight: number }> // weight: 0-100
       >()
       .notNull(),
     embedding: vector('embedding', { dimensions: 1536 }), // post embedding

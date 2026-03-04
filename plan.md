@@ -101,7 +101,7 @@ This plan implements `prd.md` in a staged, low-risk way. It is ordered by highes
 - Merge chunk insights into a compact generation brief.
 - Prefer chunks with concrete details and novelty.
 
-### Task 9: Add chunking tests
+### ~~Task 9: Add chunking tests~~ ✅
 
 **Refs:** CHUNK-6  
 **Files:** new `src/lib/ai/chunking.test.ts`

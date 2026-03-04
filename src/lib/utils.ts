@@ -15,7 +15,6 @@ import {
   NoImageGeneratedError,
   NoObjectGeneratedError,
   NoOutputSpecifiedError,
-  NoSpeechGeneratedError,
   NoSuchModelError,
   NoSuchProviderError,
   NoSuchToolError,
@@ -103,10 +102,6 @@ export function getAIErrorMessage(err: unknown): string {
 
   if (NoImageGeneratedError.isInstance(err)) {
     return 'AI failed to generate an image. Please try again.';
-  }
-
-  if (NoSpeechGeneratedError.isInstance(err)) {
-    return 'AI failed to generate speech. Please try again.';
   }
 
   // Model/Provider Errors

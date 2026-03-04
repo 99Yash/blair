@@ -70,43 +70,51 @@ export interface ContentBrief {
 // Chunk analysis
 // ---------------------------------------------------------------------------
 
-const ANALYSIS_MODEL_ID = 'gemini-2.0-flash-lite';
+const ANALYSIS_MODEL_ID = 'gemini-2.0-flash';
 
 /** Maximum chunks to analyze (controls cost/latency). */
 const MAX_CHUNKS_TO_ANALYZE = 30;
 
 /** Concurrency limit for parallel chunk analysis. */
-const ANALYSIS_CONCURRENCY = 5;
+const ANALYSIS_CONCURRENCY = 3;
 
 /**
  * Analyzes a single content chunk, extracting structured insights.
  */
 export async function analyzeChunk(
   chunk: ContentChunk,
-): Promise<AnnotatedChunkAnalysis> {
-  const result = await generateObject({
-    model: google(ANALYSIS_MODEL_ID),
-    schema: chunkAnalysisSchema,
-    prompt: `Extract key insights from this content chunk. Focus on concrete details, specific data, and non-obvious angles. If the chunk has no meaningful insights, return empty arrays.
+): Promise<AnnotatedChunkAnalysis | null> {
+  const call = () =>
+    generateObject({
+      model: google(ANALYSIS_MODEL_ID),
+      schema: chunkAnalysisSchema,
+      prompt: `Extract key insights from this content chunk. Focus on concrete details, specific data, and non-obvious angles. If the chunk has no meaningful insights, return empty arrays.
 
 Chunk (${chunk.char_start}-${chunk.char_end}):
 ${chunk.text}`,
-  });
+    });
 
-  const analysis = result.object;
-  const density =
-    analysis.key_claims.length +
-    analysis.concrete_stats.length +
-    analysis.contrarian_angles.length +
-    analysis.quote_worthy_lines.length;
+  try {
+    const result = await call().catch(() => call());
 
-  return {
-    chunk_index: chunk.chunk_index,
-    char_start: chunk.char_start,
-    char_end: chunk.char_end,
-    analysis,
-    density,
-  };
+    const analysis = result.object;
+    const density =
+      analysis.key_claims.length +
+      analysis.concrete_stats.length +
+      analysis.contrarian_angles.length +
+      analysis.quote_worthy_lines.length;
+
+    return {
+      chunk_index: chunk.chunk_index,
+      char_start: chunk.char_start,
+      char_end: chunk.char_end,
+      analysis,
+      density,
+    };
+  } catch (err) {
+    console.warn(`Chunk ${chunk.chunk_index} analysis failed, skipping:`, err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 /**
@@ -141,7 +149,8 @@ export async function analyzeChunks(
   chunks: ContentChunk[],
 ): Promise<AnnotatedChunkAnalysis[]> {
   const toAnalyze = chunks.slice(0, MAX_CHUNKS_TO_ANALYZE);
-  return mapWithConcurrency(toAnalyze, ANALYSIS_CONCURRENCY, analyzeChunk);
+  const results = await mapWithConcurrency(toAnalyze, ANALYSIS_CONCURRENCY, analyzeChunk);
+  return results.filter((r): r is AnnotatedChunkAnalysis => r !== null);
 }
 
 // ---------------------------------------------------------------------------

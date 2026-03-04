@@ -3,6 +3,7 @@ import {
   createUIMessageStream,
   createUIMessageStreamResponse,
   generateObject,
+  generateText,
   streamText,
 } from 'ai';
 import { and, eq, sql } from 'drizzle-orm';
@@ -23,6 +24,7 @@ import { firecrawl } from '~/lib/firecrawl';
 import {
   postFormSchema,
   scrapedContentAnalysisSchema,
+  type ScrapedContentAnalysis,
 } from '~/lib/schemas/post';
 import {
   createContentAnalysisData,
@@ -197,31 +199,38 @@ export async function POST(request: Request) {
         );
 
         // Run chunk-level analysis reducer (CHUNK-4, CHUNK-5)
-        let contentBriefText: string;
-        let analysis;
-        try {
-          const [briefResult, analysisResult] = await Promise.all([
-            buildContentBrief(chunks),
-            generateObject({
-              model: google('gemini-2.0-flash-lite'),
-              schema: scrapedContentAnalysisSchema,
-              // Use first ~50k chars for the top-level analysis to stay within model limits
-              prompt: `Analyze the following scraped content:\n${content.slice(0, 50000)}`,
-            }),
-          ]);
+        let contentBriefText: string = '';
+        let analysis: ScrapedContentAnalysis | null = null;
 
+        const analyzeContent = () =>
+          generateObject({
+            model: google('gemini-2.0-flash'),
+            schema: scrapedContentAnalysisSchema,
+            prompt: `Analyze the following scraped content:\n${content.slice(0, 50000)}`,
+          });
+
+        // Run both in parallel; each is independently fault-tolerant
+        const [briefResult, analysisResult] = await Promise.all([
+          buildContentBrief(chunks).catch((err) => {
+            console.warn('Content brief failed:', err instanceof Error ? err.message : err);
+            return null;
+          }),
+          analyzeContent()
+            .catch(() => analyzeContent())
+            .catch((err) => {
+              console.warn('Content analysis failed:', err instanceof Error ? err.message : err);
+              return null;
+            }),
+        ]);
+
+        if (briefResult) {
           contentBriefText = formatContentBrief(briefResult.brief);
+        }
+        if (analysisResult) {
           analysis = analysisResult.object;
-        } catch (err) {
-          const errorMessage = getAIErrorMessage(err);
-          writer.write(
-            createProgressData(PROGRESS_STAGES.ANALYZING, errorMessage, 'error')
-          );
-          writer.write(createNotificationData(errorMessage, 'error'));
-          return;
         }
 
-        if (!analysis || !analysis.content_summary) {
+        if (!analysis) {
           const errorMessage =
             'Failed to analyze website content. Please try again.';
           writer.write(
@@ -386,31 +395,28 @@ ${contentBriefText || 'No detailed insights extracted.'}`,
           outputFormatting: `Reply with the post content only, no explanations.`,
         });
 
-        const generationModelId = 'gemini-2.0-flash-lite';
+        const generationModelId = 'gemini-2.0-flash';
         telemetry.model_id = generationModelId;
 
-        const generationResult = streamText({
-          model: google(generationModelId),
-          messages: [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-        });
+        const modelMessages = [
+          { role: 'user' as const, content: prompt },
+        ];
 
-        // Collect the generated content and stream it to the client
+        // Try streaming first, fall back to non-streaming on failure
         let generatedContent = '';
         try {
+          const generationResult = streamText({
+            model: google(generationModelId),
+            messages: modelMessages,
+          });
+
           for await (const delta of generationResult.textStream) {
             generatedContent += delta;
 
-            // Stream the content as it's being generated (send every chunk)
             writer.write(
               createGeneratedPostData(generatedContent, submissionData.platform)
             );
 
-            // Also update progress every 50 characters
             if (generatedContent.length % 50 === 0) {
               writer.write(
                 createProgressData(
@@ -421,17 +427,34 @@ ${contentBriefText || 'No detailed insights extracted.'}`,
               );
             }
           }
-        } catch (err) {
-          const errorMessage = getAIErrorMessage(err);
-          writer.write(
-            createProgressData(
-              PROGRESS_STAGES.GENERATING,
-              errorMessage,
-              'error'
-            )
+        } catch (streamErr) {
+          console.warn(
+            'streamText failed, retrying with generateText:',
+            streamErr instanceof Error ? streamErr.message : streamErr
           );
-          writer.write(createNotificationData(errorMessage, 'error'));
-          return;
+          generatedContent = '';
+
+          try {
+            const fallbackResult = await generateText({
+              model: google(generationModelId),
+              messages: modelMessages,
+            });
+            generatedContent = fallbackResult.text;
+            writer.write(
+              createGeneratedPostData(generatedContent, submissionData.platform)
+            );
+          } catch (fallbackErr) {
+            const errorMessage = getAIErrorMessage(fallbackErr);
+            writer.write(
+              createProgressData(
+                PROGRESS_STAGES.GENERATING,
+                errorMessage,
+                'error'
+              )
+            );
+            writer.write(createNotificationData(errorMessage, 'error'));
+            return;
+          }
         }
 
         if (!generatedContent.trim()) {
@@ -514,13 +537,6 @@ ${contentBriefText || 'No detailed insights extracted.'}`,
         // Emit telemetry
         telemetry.char_count = generatedContent.length;
         telemetry.latency_ms = Math.round(performance.now() - startTime);
-        const usage = await generationResult.usage;
-        if (usage) {
-          telemetry.token_usage = {
-            prompt_tokens: usage.inputTokens ?? 0,
-            completion_tokens: usage.outputTokens ?? 0,
-          };
-        }
         writer.write(createTelemetryData(telemetry));
       } catch (err) {
         // This catch block handles unexpected errors that weren't caught by stage-specific handlers

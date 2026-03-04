@@ -129,7 +129,7 @@ export async function POST(request: Request) {
     const slicedContent = content.slice(0, SCRAPED_POST_CONTENT_MAX_LENGTH);
 
     const { object: analysis } = await generateObject({
-      model: google('gemini-2.0-flash-lite'),
+      model: google('gemini-2.0-flash'),
       schema: scrapedContentAnalysisSchema,
       prompt: `Analyze the following scraped content: ${slicedContent} and return the analysis in the schema provided.`,
     });

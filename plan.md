@@ -53,7 +53,7 @@ This plan implements `prd.md` in a staged, low-risk way. It is ordered by highes
 - Add draft version metadata (`version`, `parent_id`, `quality_score` optional).
 - Keep full history for comparison and learning.
 
-### Task 5: Data cleanup and backfill
+### ~~Task 5: Data cleanup and backfill~~ ✅
 
 **Refs:** DATA-1, DATA-2  
 **Files:** new `scripts/data-fixes/` scripts, optional admin API

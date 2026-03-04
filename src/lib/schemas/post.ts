@@ -1,40 +1,53 @@
 import * as z from 'zod/v4';
-import { GENERATED_POST_CONTENT_MAX_LENGTH } from '../constants';
+import { GENERATED_POST_CONTENT_MAX_LENGTH, PLATFORM_GENERATION_CONFIG } from '../constants';
 
 // Max across all platforms (Facebook = 63206). Server enforces per-platform limits.
 const TRAINING_POST_CONTENT_MAX_LENGTH = 63206;
 
-export const postFormSchema = z.object({
-  post_content: z
-    .string()
-    .min(1, 'Post content is required')
-    .max(
-      TRAINING_POST_CONTENT_MAX_LENGTH,
-      `Post content must be less than ${TRAINING_POST_CONTENT_MAX_LENGTH} characters`
-    ),
-  platform: z.enum(['twitter', 'instagram', 'facebook', 'linkedin'], {
-    message: 'Platform is required',
-  }),
-  original_url: z.url('Must be a valid URL'),
-  link_ownership_type: z.enum(['own_content', 'third_party_content'], {
-    message: 'Link ownership type is required',
-  }),
-  tone_profile: z
-    .array(
-      z.object({
-        tone: z.enum([
-          'witty',
-          'professional',
-          'inspirational',
-          'casual',
-          'direct',
-          'empathetic',
-        ]),
-        weight: z.number().min(0).max(100),
-      })
-    )
-    .min(1, 'At least one tone profile is required'),
-});
+export const postFormSchema = z
+  .object({
+    post_content: z
+      .string()
+      .min(1, 'Post content is required')
+      .max(
+        TRAINING_POST_CONTENT_MAX_LENGTH,
+        `Post content must be less than ${TRAINING_POST_CONTENT_MAX_LENGTH} characters`
+      ),
+    platform: z.enum(['twitter', 'instagram', 'facebook', 'linkedin'], {
+      message: 'Platform is required',
+    }),
+    original_url: z.url('Must be a valid URL'),
+    link_ownership_type: z.enum(['own_content', 'third_party_content'], {
+      message: 'Link ownership type is required',
+    }),
+    tone_profile: z
+      .array(
+        z.object({
+          tone: z.enum([
+            'witty',
+            'professional',
+            'inspirational',
+            'casual',
+            'direct',
+            'empathetic',
+          ]),
+          weight: z.number().min(0).max(100),
+        })
+      )
+      .min(1, 'At least one tone profile is required'),
+  })
+  .check((ctx) => {
+    const limit =
+      PLATFORM_GENERATION_CONFIG[ctx.value.platform]?.characterLimit;
+    if (limit && ctx.value.post_content.length > limit) {
+      ctx.issues.push({
+        code: 'custom',
+        message: `Post content exceeds ${ctx.value.platform} character limit of ${limit}`,
+        path: ['post_content'],
+        input: ctx.value.post_content,
+      });
+    }
+  });
 
 export type PostFormData = z.infer<typeof postFormSchema>;
 

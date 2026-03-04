@@ -1,4 +1,4 @@
-import { integer, numeric, pgTable, text, varchar } from 'drizzle-orm/pg-core';
+import { integer, numeric, pgTable, text, uniqueIndex, varchar } from 'drizzle-orm/pg-core';
 import { user } from './auth';
 import { createId, lifecycle_dates } from './helpers';
 import {
@@ -29,4 +29,6 @@ export const generate_posts = pgTable('generate_posts', {
   parent_id: varchar('parent_id'),
   quality_score: numeric('quality_score', { precision: 4, scale: 2 }),
   ...lifecycle_dates,
-});
+}, (table) => [
+  uniqueIndex('unique_user_url_version').on(table.user_id, table.original_url, table.version),
+]);

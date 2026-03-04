@@ -11,6 +11,7 @@ import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { db } from '~/db';
 import { generate_posts } from '~/db/schemas';
+import { createId } from '~/db/schemas/helpers';
 import { chunkContent } from '~/lib/ai/chunking';
 import { buildContentBrief, formatContentBrief } from '~/lib/ai/reducer';
 import { createPrompt } from '~/lib/ai/utils';
@@ -489,35 +490,30 @@ ${contentBriefText || 'No detailed insights extracted.'}`,
           )
         );
 
-        // Compute version number for this URL + user combination
-        const existingDrafts = await db
-          .select({ version: generate_posts.version })
-          .from(generate_posts)
-          .where(
-            and(
-              eq(generate_posts.user_id, session.user.id),
-              eq(generate_posts.original_url, submissionData.original_url)
-            )
+        // Atomically compute and insert the next version number to avoid
+        // race conditions between concurrent generation requests.
+        await db.execute(sql`
+          INSERT INTO generate_posts (
+            id, post_content, platforms, content_type, original_url,
+            content_summary, target_audience, link_ownership_type,
+            user_id, version
+          ) VALUES (
+            ${createId()},
+            ${generatedContent},
+            ${submissionData.platform},
+            ${analysis.content_type},
+            ${submissionData.original_url},
+            ${analysis.content_summary},
+            ${analysis.target_audience},
+            ${submissionData.link_ownership_type},
+            ${session.user.id},
+            COALESCE((
+              SELECT MAX(version) FROM generate_posts
+              WHERE user_id = ${session.user.id}
+                AND original_url = ${submissionData.original_url}
+            ), 0) + 1
           )
-          .orderBy(sql`${generate_posts.version} DESC`)
-          .limit(1);
-
-        const nextVersion =
-          existingDrafts.length > 0 ? existingDrafts[0].version + 1 : 1;
-
-        const insertData = {
-          original_url: submissionData.original_url,
-          post_content: generatedContent,
-          platform: submissionData.platform,
-          content_type: analysis.content_type,
-          content_summary: analysis.content_summary,
-          target_audience: analysis.target_audience,
-          link_ownership_type: submissionData.link_ownership_type,
-          user_id: session.user.id,
-          version: nextVersion,
-        };
-
-        await db.insert(generate_posts).values(insertData);
+        `);
 
         writer.write(
           createProgressData(

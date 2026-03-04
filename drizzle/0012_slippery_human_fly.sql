@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "unique_user_url_version" ON "generate_posts" USING btree ("user_id","original_url","version");
